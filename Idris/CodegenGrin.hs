@@ -303,7 +303,7 @@ literal = \case
 
 pipelineOpts :: PipelineOpts
 pipelineOpts = defaultOpts
-  { _poOutputDir = "./idris/"
+  { _poOutputDir = "./.idris/"
   , _poFailOnLint = False
   }
 
