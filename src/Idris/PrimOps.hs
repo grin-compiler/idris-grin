@@ -1,5 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
-module Frontend.Idris.PrimOps where
+module Idris.PrimOps where
 
 import Grin.Grin
 import Grin.TH

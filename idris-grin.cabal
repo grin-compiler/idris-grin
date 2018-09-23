@@ -16,11 +16,19 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
-    Frontend.Idris.CodegenGrin
-    Frontend.Idris.PrimOps
+    Idris.CodegenGrin
+    Idris.PrimOps
 
   build-depends:
-    base
+      base
+    , text
+    , grin
+    , recursion-schemes
+    , idris
+    , ansi-wl-pprint
+    , pretty-show
+    , process
+    , directory
 
   default-language:    Haskell2010
 
@@ -41,6 +49,7 @@ executable idris-codegen-grin
                 , mtl
                 , transformers
                 , grin
+                , idris-grin
 
   if os(linux)
      cpp-options:   -DLINUX

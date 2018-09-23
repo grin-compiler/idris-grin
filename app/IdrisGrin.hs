@@ -7,7 +7,7 @@ import Idris.Options
 
 import IRTS.Compiler
 
-import Frontend.Idris.CodegenGrin
+import Idris.CodegenGrin
 
 import System.Environment
 import System.Exit

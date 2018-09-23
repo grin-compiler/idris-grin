@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase, TupleSections, RecordWildCards, TypeApplications #-}
 {-# LANGUAGE OverloadedStrings, ViewPatterns #-}
-module Frontend.Idris.CodegenGrin(codegenGrin) where
+module Idris.CodegenGrin(codegenGrin) where
 
 import Control.Monad
 import Text.Show.Pretty hiding (Name)
@@ -26,7 +26,7 @@ import Grin.Pretty
 import Grin.Grin as Grin
 import Pipeline.Pipeline
 
-import Frontend.Idris.PrimOps
+import Idris.PrimOps
 
 {-
 TODO:
