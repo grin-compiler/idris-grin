@@ -75,6 +75,11 @@ idrisPrimOps = [prog|
     idris_int_div2 <- _prim_int_div idris_int_div0_1 idris_int_div1_1
     pure (CGrInt idris_int_div2)
 
+  idris_write_str idris_write_str1 idris_write_str2 =
+    (CGrString idris_write_str2_0) <- fetch idris_write_str2
+    _prim_string_print idris_write_str2_0
+    pure (CUnit)
+
   grinMain =
     r <- idr_{runMain_0}
     pure ()

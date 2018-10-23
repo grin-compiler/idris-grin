@@ -33,6 +33,7 @@ TODO:
  * Implement appropiate primitive ops
  * Optimization transformation that removed empty defaults, like pure ()
  * Implement String primitives
+ * Reenable compilation at the end
 -}
 
 {-
@@ -77,6 +78,8 @@ codegenGrin CodegenInfo{..} = do
     preparation
     idrisOptimizations
     (postProcessing outputFile)
+  pure ()
+{-
   generateRuntime
   callCommand $ printf "llc-5.0 -O3 -relocation-model=pic -filetype=obj %s.ll" outputFile
   callCommand $ printf "gcc -O3 runtime.c %s.o -s -o %s" outputFile outputFile
@@ -84,6 +87,7 @@ codegenGrin CodegenInfo{..} = do
   removeFile $ printf "%s.o" outputFile
   removeFile $ printf "%s.s" outputFile
   removeRuntime
+-}
 
 program :: [(Idris.Name, SDecl)] -> Exp
 program defs =
@@ -243,9 +247,9 @@ primFn f ps = case f of
   LStrRev -> undefined
   LStrSubstr -> undefined
   LReadStr -> Grin.SApp "_prim_int_add" $ [Lit (LInt64 4)] ++ ps -- TODO: Fix String
-
-  LWriteStr -> Grin.SApp "_prim_write_str" ps -- TODO: Fix String
 -}
+  LWriteStr -> Grin.SApp "idris_write_str" ps
+
   LExternal name -> Grin.SApp (show name) ps
   {-
   LSystemInfo -> undefined
@@ -281,6 +285,7 @@ literal :: Idris.Const -> Val
 literal = \case
   Idris.I int      -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral int)]
   Idris.BI integer -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral integer)]
+  Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString string]
   {-
   Idris.B64 word64 -> LWord64 word64
   Idris.Fl double -> traceShow ("TODO: literal sould implement Double " ++ show double) $ LFloat (realToFrac double)
@@ -318,7 +323,7 @@ preparation =
   , HPT PrintHPTCode
   , SaveGrin "high-level-code.grin"
   ]
-  
+
 idrisOptimizations :: [Transformation]
 idrisOptimizations =
   [ BindNormalisation
@@ -337,6 +342,7 @@ idrisOptimizations =
   , GeneralizedUnboxing
   , ArityRaising
   , LateInlining
+  , NonSharedElimination
   ]
 
 postProcessing :: String -> [PipelineStep]
@@ -346,6 +352,7 @@ postProcessing outputFile =
   , HPT CompileHPT
   , HPT RunHPTPure
   , HPT PrintHPTResult
-  , SaveLLVM False outputFile
+  , PrintTypeEnv
+--  , SaveLLVM False outputFile
 --  , JITLLVM
   ]
