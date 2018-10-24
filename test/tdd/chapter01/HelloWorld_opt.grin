@@ -1,0 +1,3 @@
+grinMain =
+  idris_write_str2.0 <- pure ""Hello World!\n""
+  _prim_string_print idris_write_str2.0
