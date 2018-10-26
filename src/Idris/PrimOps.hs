@@ -80,6 +80,17 @@ idrisPrimOps = [prog|
     _prim_string_print idris_write_str2_0
     pure (CUnit)
 
+  idris_str_concat idris_str_concat1 idris_str_concat2 =
+    (CGrString idris_str_concat1_0) <- fetch idris_str_concat1
+    (CGrString idris_str_concat2_0) <- fetch idris_str_concat2
+    idris_str_concat3 <- _prim_string_concat idris_str_concat1_0 idris_str_concat2_0
+    pure (CGrString idris_str_concat3)
+
+  idris_int_str idris_int_str1 =
+    (CGrInt idris_int_str1_0) <- fetch idris_int_str1
+    idris_int_str2 <- _prim_int_str idris_int_str1_0
+    pure (CGrString idris_int_str2)
+
   grinMain =
     r <- idr_{runMain_0}
     pure ()

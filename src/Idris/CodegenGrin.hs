@@ -214,13 +214,17 @@ primFn f ps = case f of
   LSExt intTy1 intTy2 -> undefined
   LZExt intTy1 intTy2 -> undefined
   LTrunc intTy1 intTy2 -> undefined
-  LStrConcat -> Grin.SApp "_prim_int_add" ps -- TODO: Fix String
+-}
+  LStrConcat -> Grin.SApp "idris_str_concat" ps
+{-
   LStrLt -> undefined
   LStrEq -> Grin.SApp "_prim_int_eq" ps -- TODO: Fix String
   LStrLen -> undefined
   LIntFloat intTy -> undefined
   LFloatInt intTy -> undefined
-  LIntStr intTy -> Grin.SApp "_prim_int_add" $ [Lit (LInt64 2)] ++ ps -- TODO: Fix String
+-}
+  LIntStr intTy -> Grin.SApp "idris_int_str" ps
+{-
   LStrInt intTy -> undefined
   LFloatStr -> undefined
   LStrFloat -> undefined

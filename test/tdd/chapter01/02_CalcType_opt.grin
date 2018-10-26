@@ -1,0 +1,9 @@
+grinMain =
+  ccp.0 <- pure 94
+  ccp.1 <- _prim_int_str ccp.0
+  idris_str_concat2_0.0 <- pure "\n"
+  unboxed.CGrString.0.0 <- _prim_string_concat ccp.1 idris_str_concat2_0.0
+  _prim_string_print unboxed.CGrString.0.0
+  ccp.2 <- pure "Ninety four"
+  unboxed.CGrString.1.0 <- _prim_string_concat ccp.2 idris_str_concat2_0.0
+  _prim_string_print unboxed.CGrString.1.0
