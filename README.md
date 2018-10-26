@@ -9,3 +9,8 @@ The 'test' directory contains the examples that the current version of the front
 the generated and optimised grin code for the idris programs. For example:
 HelloWorld.idr, HellowWorld.grin, HelloWorld_opt.grin
 
+How to run the idris frontend experiments on your own:
+```
+stack install
+stack exec idris -- test/tdd/chapter01/HelloWorld.idr -i test/tdd/chapter01 --codegen grin -o helloworld.grin
+```
