@@ -75,10 +75,21 @@ idrisPrimOps = [prog|
     idris_int_div2 <- _prim_int_div idris_int_div0_1 idris_int_div1_1
     pure (CGrInt idris_int_div2)
 
+  idris_float_div idris_float_div0 idris_float_div1 =
+    (CGrFloat idris_float_div0_1) <- fetch idris_float_div0
+    (CGrFloat idris_float_div1_1) <- fetch idris_float_div1
+    idris_float_div2 <- _prim_float_div idris_float_div0_1 idris_float_div1_1
+    pure (CGrFloat idris_float_div2)
+
   idris_write_str idris_write_str1 idris_write_str2 =
     (CGrString idris_write_str2_0) <- fetch idris_write_str2
     _prim_string_print idris_write_str2_0
     pure (CUnit)
+
+  idris_read_str idris_read_str0 =
+    -- This parameter will be an int that addresses the stream...
+    idris_read_str1 <- _prim_read_string
+    pure (CGrString idris_read_str1)
 
   idris_str_concat idris_str_concat1 idris_str_concat2 =
     (CGrString idris_str_concat1_0) <- fetch idris_str_concat1
@@ -86,10 +97,74 @@ idrisPrimOps = [prog|
     idris_str_concat3 <- _prim_string_concat idris_str_concat1_0 idris_str_concat2_0
     pure (CGrString idris_str_concat3)
 
+  idris_str_eq idris_str_eq1 idris_str_eq2 =
+    (CGrString idris_str_eq1_0) <- fetch idris_str_eq1
+    (CGrString idris_str_eq2_0) <- fetch idris_str_eq2
+    idris_str_eq3 <- _prim_string_eq idris_str_eq1_0 idris_str_eq2_0
+    case idris_str_eq3 of
+      #False  -> pure (CGrInt 0)
+      #True   -> pure (CGrInt 1)
+
+  idris_str_len idris_str_len1 =
+    (CGrString idris_str_len2) <- fetch idris_str_len1
+    idris_str_len3 <- _prim_string_len idris_str_len2
+    pure (CGrInt idris_str_len3)
+
+  idris_str_rev idris_str_rev1 =
+    (CGrString idris_str_rev1_0) <- fetch idris_str_rev1
+    idris_str_rev2 <- _prim_string_reverse idris_str_rev1_0
+    pure (CGrString idris_str_rev2)
+
+  idris_str_head idris_str_head1 =
+    (CGrString idris_str_head1_0) <- fetch idris_str_head1
+    idris_str_head2 <- _prim_string_head idris_str_head1_0
+    pure (CGrInt idris_str_head2)
+
+  idris_str_tail idris_str_tail1 =
+    (CGrString idris_str_tail1_0) <- fetch idris_str_tail1
+    idris_str_tail2 <- _prim_string_tail idris_str_tail1_0
+    pure (CGrString idris_str_tail2)
+
+  idris_str_cons idris_str_cons1 idris_str_cons2 =
+    (CGrInt idris_str_cons1_0)    <- fetch idris_str_cons1
+    (CGrString idris_str_cons2_0) <- fetch idris_str_cons2
+    idris_str_cons3 <- _prim_string_cons idris_str_cons1_0 idris_str_cons2_0
+    pure (CGrString idris_str_cons3)
+
   idris_int_str idris_int_str1 =
     (CGrInt idris_int_str1_0) <- fetch idris_int_str1
     idris_int_str2 <- _prim_int_str idris_int_str1_0
     pure (CGrString idris_int_str2)
+
+  idris_int_float idris_int_float1 =
+    (CGrInt idris_int_float1_0) <- fetch idris_int_float1
+    idris_int_float2 <- _prim_int_float idris_int_float1_0
+    pure (CGrFloat idris_int_float2)
+
+  idris_float_str idris_float_str1 =
+    (CGrFloat idris_float_str1_0) <- fetch idris_float_str1
+    idris_float_str2 <- _prim_float_string idris_float_str1_0
+    pure (CGrString idris_float_str2)
+
+  idris_ffi_file_eof idris_ffi_file_eof1 =
+    (CGrFFI idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
+    idris_ffi_file_eof2 <- _prim_ffi_file_eof idris_ffi_file_eof1_0
+    pure (CGrInt idris_ffi_file_eof2)
+
+  idris_lz_ext idris_lz_ext1 =
+    (CGrInt idris_lz_ext2) <- fetch idris_lz_ext1
+    idris_lz_ext3 <- _prim_int_add idris_lz_ext2 0
+    pure (CGrInt idris_lz_ext3)
+
+  idris_ls_ext idris_ls_ext1 =
+    (CGrInt idris_ls_ext2) <- fetch idris_ls_ext1
+    idris_ls_ext3 <- _prim_int_add idris_ls_ext2 0
+    pure (CGrInt idris_ls_ext3)
+
+  idris_ch_int idris_ch_int1 =
+    (CGrChar idris_ch_int2) <- fetch idris_ch_int1
+    idris_ch_int3 <- _prim_char_int idris_ch_int2
+    pure (CGrInt idris_ch_int3)
 
   grinMain =
     r <- idr_{runMain_0}

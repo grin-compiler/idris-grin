@@ -12,6 +12,7 @@ import IRTS.Lang as Idris
 import Data.Functor.Foldable
 import qualified Data.Text as Text
 import qualified Idris.Core.TT as Idris
+import Data.Char (ord)
 import Data.List
 import Control.Exception
 import Control.Monad
@@ -144,13 +145,18 @@ sexp fname = \case
   SV lvar0@(Idris.Loc i)  -> SFetch (loc fname lvar0)
   SV lvar0@(Idris.Glob n) -> traceShow "Global call" $ Grin.SApp (lvar fname lvar0) []
 
-  --SForeign fdesc1 fdesc2 fdescLVars -> undefined
-  -- TODO: Foreign function calls must handle pointers or they must wrapped.
-  SForeign _ (FStr "idris_int_print") [(_,arg)] -> Grin.SApp "idris_int_print" [Var . lvar fname $ arg]
-  SNothing -> traceShow "Erased value" $ SReturn Unit
+  -- SForeign fdesc1 fdesc2 fdescLVars -> undefined
+  -- TODO: Foreign function calls must handle pointers or they must be wrapped.
+  SForeign t fun args -> foreignFun fname t fun args
 
+  SNothing -> traceShow "Erased value" $ SReturn (ConstTagNode (Tag C "Erased") [])
   -- SError string -> traceShow ("Error with:" ++ string) $ Grin.SApp "prim_error" []
   e -> error $ printf "unsupported %s" (show e)
+
+
+foreignFun fname _ (FStr "idris_int_print") [(_, arg)] = Grin.SApp "idris_int_print" [Var . lvar fname $ arg]
+foreignFun fname _ (FStr "fileEOF") [(_,lvar0)] = Grin.SApp "idris_ffi_file_eof" [Var . lvar fname $ lvar0]
+
 
 alts :: Name -> [SAlt] -> [Exp]
 alts fname alts =
@@ -185,6 +191,7 @@ primFn f ps = case f of
   LMinus  (Idris.ATInt intTy) -> Grin.SApp "idris_int_sub" ps
   LTimes  (Idris.ATInt intTy) -> Grin.SApp "idris_int_mul" ps
   LSDiv   (Idris.ATInt intTy) -> Grin.SApp "idris_int_div" ps
+  LSDiv   Idris.ATFloat       -> Grin.SApp "idris_float_div" ps
   {-
   LUDiv intTy -> undefined
   LURem intTy -> undefined
@@ -211,25 +218,31 @@ primFn f ps = case f of
   LGe intTy -> Grin.SApp "_prim_int_ge" ps
 
   --LSLt Idris.ATFloat       -> Grin.SApp "_prim_float_lt" ps
-  LSExt intTy1 intTy2 -> undefined
-  LZExt intTy1 intTy2 -> undefined
+-}
+  LSExt intTy1 intTy2 -> Grin.SApp "idris_ls_ext" ps
+  LZExt intTy1 intTy2 -> Grin.SApp "idris_lz_ext" ps
+{-
   LTrunc intTy1 intTy2 -> undefined
 -}
   LStrConcat -> Grin.SApp "idris_str_concat" ps
 {-
   LStrLt -> undefined
-  LStrEq -> Grin.SApp "_prim_int_eq" ps -- TODO: Fix String
-  LStrLen -> undefined
-  LIntFloat intTy -> undefined
+-}
+  LStrEq -> Grin.SApp "idris_str_eq" ps
+  LStrLen -> Grin.SApp "idris_str_len" ps
+  LIntFloat intTy -> Grin.SApp "idris_int_float" ps
+{-
   LFloatInt intTy -> undefined
+}
 -}
   LIntStr intTy -> Grin.SApp "idris_int_str" ps
 {-
   LStrInt intTy -> undefined
-  LFloatStr -> undefined
-  LStrFloat -> undefined
-  LChInt intTy -> undefined
-  LIntCh intTy -> undefined
+-}
+  LFloatStr -> Grin.SApp "idris_float_str" ps
+{-  LStrFloat -> undefined -}
+  LChInt intTy -> Grin.SApp "idris_ch_int" ps
+{-  LIntCh intTy -> undefined
   LBitCast arithTy1 arithTy2 -> undefined -- Only for values of equal width
   LFExp -> undefined
   LFLog -> undefined
@@ -244,14 +257,18 @@ primFn f ps = case f of
   LFFloor -> undefined
   LFCeil -> undefined
   LFNegate -> undefined
-  LStrHead -> Grin.SApp "_prim_int_add" $ [Lit (LInt64 2)] ++ ps -- TODO: Fix String
-  LStrTail -> Grin.SApp "_prim_int_add" $ [Lit (LInt64 3)] ++ ps -- TODO: Fix String
-  LStrCons -> Grin.SApp "_prim_int_add" ps -- TODO: Fix String
-  LStrIndex -> undefined
-  LStrRev -> undefined
-  LStrSubstr -> undefined
-  LReadStr -> Grin.SApp "_prim_int_add" $ [Lit (LInt64 4)] ++ ps -- TODO: Fix String
 -}
+  LStrHead -> Grin.SApp "idris_str_head" ps
+  LStrTail -> Grin.SApp "idris_str_tail" ps
+  LStrCons -> Grin.SApp "idris_str_cons" ps
+{-  LStrIndex -> undefined
+-}
+  LStrRev -> Grin.SApp "idris_str_rev" ps
+{-
+  LStrSubstr -> undefined
+}
+-}
+  LReadStr -> Grin.SApp "idris_read_str" ps
   LWriteStr -> Grin.SApp "idris_write_str" ps
 
   LExternal name -> Grin.SApp (show name) ps
@@ -290,10 +307,10 @@ literal = \case
   Idris.I int      -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral int)]
   Idris.BI integer -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral integer)]
   Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString string]
+  Idris.Ch char    -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral $ ord $ char)]
   {-
   Idris.B64 word64 -> LWord64 word64
   Idris.Fl double -> traceShow ("TODO: literal sould implement Double " ++ show double) $ LFloat (realToFrac double)
-  Idris.Ch char -> traceShow ("TODO: literal should implement Char" ++ show char) $ LInt64 (fromIntegral $ fromEnum char)
   Idris.Str string -> traceShow ("TODO: literal should implement String " ++ string) $ LInt64 1234
   -}
 {-
@@ -314,29 +331,33 @@ pipelineOpts :: PipelineOpts
 pipelineOpts = defaultOpts
   { _poOutputDir = "./.idris/"
   , _poFailOnLint = False
+  , _poSaveTypeEnv = True
   }
 
 preparation :: [PipelineStep]
 preparation =
   [ SaveGrin "FromIdris"
   , T DeadProcedureElimination
-  , PrintGrin ondullblack
+--  , PrintGrin ondullblack
   , HPT CompileHPT
   , HPT RunHPTPure
   , HPT PrintHPTResult
-  , HPT PrintHPTCode
+  , PrintTypeEnv
+--  , HPT PrintHPTCode
   , SaveGrin "high-level-code.grin"
+  , Lint
   ]
 
 idrisOptimizations :: [Transformation]
 idrisOptimizations =
   [ BindNormalisation
+  , InlineEval
+  , InlineApply
   , EvaluatedCaseElimination
   , TrivialCaseElimination
   , SparseCaseOptimisation
   , UpdateElimination
   , CopyPropagation
---  , ConstantPropagation
   , DeadProcedureElimination
   , DeadVariableElimination
   , DeadParameterElimination
@@ -348,15 +369,14 @@ idrisOptimizations =
   , LateInlining
   , NonSharedElimination
   ]
+--}
 
 postProcessing :: String -> [PipelineStep]
 postProcessing outputFile =
   [ SaveGrin "high-level-opt-code.grin"
-  , PureEval
   , HPT CompileHPT
   , HPT RunHPTPure
-  , HPT PrintHPTResult
   , PrintTypeEnv
---  , SaveLLVM False outputFile
+  , PureEval
 --  , JITLLVM
   ]
