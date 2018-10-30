@@ -147,7 +147,7 @@ idrisPrimOps = [prog|
     pure (CGrString idris_float_str2)
 
   idris_ffi_file_eof idris_ffi_file_eof1 =
-    (CGrFFI idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
+    (CGrInt idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
     idris_ffi_file_eof2 <- _prim_ffi_file_eof idris_ffi_file_eof1_0
     pure (CGrInt idris_ffi_file_eof2)
 
@@ -165,6 +165,15 @@ idrisPrimOps = [prog|
     (CGrChar idris_ch_int2) <- fetch idris_ch_int1
     idris_ch_int3 <- _prim_char_int idris_ch_int2
     pure (CGrInt idris_ch_int3)
+
+  prim__stdin =
+    pure (CGrInt 0)
+
+  prim__stdout =
+    pure (CGrInt 1)
+
+  prim__stderr =
+    pure (CGrInt 2)
 
   grinMain =
     r <- idr_{runMain_0}
