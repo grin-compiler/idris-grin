@@ -359,6 +359,7 @@ idrisOptimizations =
   , UpdateElimination
   , CopyPropagation
   , DeadProcedureElimination
+  , BindNormalisation -- FIX bug in dead variable elimination
   , DeadVariableElimination
   , DeadParameterElimination
   , CommonSubExpressionElimination
@@ -369,7 +370,6 @@ idrisOptimizations =
   , LateInlining
   , NonSharedElimination
   ]
---}
 
 postProcessing :: String -> [PipelineStep]
 postProcessing outputFile =
