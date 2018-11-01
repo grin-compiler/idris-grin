@@ -5,23 +5,23 @@ module Idris.CodegenGrin(codegenGrin) where
 import Control.Monad
 import Text.Show.Pretty hiding (Name)
 import Text.Printf
+import Debug.Trace
+import qualified Data.Text as Text
+import Data.Char (ord)
+import Data.List
+import Control.Exception
 
 import IRTS.CodegenCommon
 import IRTS.Simplified as Idris
 import IRTS.Lang as Idris
 import Data.Functor.Foldable
-import qualified Data.Text as Text
 import qualified Idris.Core.TT as Idris
-import Data.Char (ord)
-import Data.List
-import Control.Exception
-import Control.Monad
-import Debug.Trace
 import Transformations.SingleStaticAssignment
 import Transformations.BindNormalisation
 import Text.PrettyPrint.ANSI.Leijen (ondullblack)
 import System.Process (callCommand)
 import System.Directory (removeFile)
+import System.IO (BufferMode(..), hSetBuffering, stdout)
 
 import Grin.Pretty
 import Grin.Grin as Grin
@@ -73,6 +73,7 @@ removeRuntime = removeFile "runtime.c"
 
 codegenGrin :: CodegenInfo -> IO ()
 codegenGrin CodegenInfo{..} = do
+  hSetBuffering stdout NoBuffering
   optimizeWith
     pipelineOpts
     (program simpleDecls)
