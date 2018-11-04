@@ -16,7 +16,7 @@ import IRTS.Simplified as Idris
 import IRTS.Lang as Idris
 import Data.Functor.Foldable
 import qualified Idris.Core.TT as Idris
-import Transformations.SingleStaticAssignment
+import Transformations.StaticSingleAssignment
 import Transformations.BindNormalisation
 import Text.PrettyPrint.ANSI.Leijen (ondullblack)
 import System.Process (callCommand)
@@ -333,6 +333,7 @@ pipelineOpts = defaultOpts
   { _poOutputDir = "./.idris/"
   , _poFailOnLint = False
   , _poSaveTypeEnv = True
+  , _poStatistics = True
   }
 
 preparation :: [PipelineStep]
@@ -342,8 +343,10 @@ preparation =
 --  , PrintGrin ondullblack
   , HPT CompileHPT
   , HPT RunHPTPure
-  , HPT PrintHPTResult
-  , PrintTypeEnv
+--  , HPT PrintHPTResult
+--  , PrintTypeEnv
+  , Statistics
+  , SaveTypeEnv
 --  , HPT PrintHPTCode
   , SaveGrin "high-level-code.grin"
   , Lint
@@ -375,9 +378,9 @@ idrisOptimizations =
 postProcessing :: String -> [PipelineStep]
 postProcessing outputFile =
   [ SaveGrin "high-level-opt-code.grin"
-  , HPT CompileHPT
-  , HPT RunHPTPure
-  , PrintTypeEnv
+--  , HPT CompileHPT
+--  , HPT RunHPTPure
+--  , PrintTypeEnv
   , PureEval
 --  , JITLLVM
   ]
