@@ -1,4 +1,4 @@
-resolver: lts-11.21
+resolver: nightly-2018-11-07
 
 # due to functor-infix
 allow-newer: true
@@ -8,15 +8,24 @@ packages:
 #  - '../grin/grin'
   - location:
       git: https://github.com/grin-tech/grin
-      commit: f308a2d6c9ae6994c39f8e76938289d1fa1c892f
+      commit: 5cbacda94b64c5566582a67f9f815b2a01ad569e
     subdirs:
       - grin
     extra-dep: true
 
+  - location:
+      git: https://github.com/llvm-hs/llvm-hs-pretty
+      commit: 0d04346ea179e96797a284d094e44e538fbddcf2
+    extra-dep: true
+
+
 extra-deps:
   - monad-gen-0.3.0.1
-  - llvm-hs-pretty-0.2.0.0
   - functor-infix-0.0.5
+  - idris-1.3.1
+  - cheapskate-0.1.1.1
+  - megaparsec-6.5.0
+  - neat-interpolation-0.3.2.2
 
 flags:
   llvm-hs:
