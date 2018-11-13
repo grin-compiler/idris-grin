@@ -102,18 +102,18 @@ function :: SDecl -> Exp
 function (SFun fname params _int body) =
   Def
     (name fname)
-    (map (\(p, i) -> (name fname) ++ show i) (params `zip` [0..]))
+    (map (\(p, i) -> packName $ unpackName (name fname) ++ show i) (params `zip` [0..]))
     (sexp (name fname) body)
 
 loc :: Name -> LVar -> Name
-loc fname (Idris.Loc i) = fname ++ show i
+loc fname (Idris.Loc i) = packName $ unpackName fname ++ show i
 
 sexp :: Name -> SExp -> Exp
 sexp fname = \case
 
   SLet loc0@(Idris.Loc i) v sc ->
-    EBind (SBlock (sexp fname v)) (Var (loc fname loc0 ++ "_val")) $ -- calculate
-    EBind (SStore (Var (loc fname loc0 ++ "_val"))) (Var (loc fname loc0)) $ -- store
+    EBind (SBlock (sexp fname v)) (Var $ packName $ unpackName (loc fname loc0) ++ "_val") $ -- calculate
+    EBind (SStore (Var  $ packName $ unpackName (loc fname loc0) ++ "_val")) (Var (loc fname loc0)) $ -- store
     (sexp fname sc)
 
   Idris.SApp bool nm lvars -> Grin.SApp (name nm) (map (Var . lvar fname) lvars)
@@ -121,16 +121,16 @@ sexp fname = \case
   -- Update is used in eval like functions, where the computed value must be the value
   -- of the expression
   Idris.SUpdate loc0 sexp0 ->
-    EBind (SBlock (sexp fname sexp0)) (Var (loc fname loc0 ++ "_val")) $
-    EBind (Grin.SUpdate (loc fname loc0) (Var (loc fname loc0 ++ "_val"))) Unit $
-    SReturn (Var (loc fname loc0 ++ "_val"))
+    EBind (SBlock (sexp fname sexp0)) (Var $ packName $ unpackName (loc fname loc0) ++ "_val") $
+    EBind (Grin.SUpdate (loc fname loc0) (Var $ packName $ unpackName (loc fname loc0) ++ "_val")) Unit $
+    SReturn (Var $ packName $ unpackName (loc fname loc0) ++ "_val")
 
   SCase caseType lvar0 salts ->
-    EBind (SFetch (lvar fname lvar0)) (Var (lvar fname lvar0 ++ "_val")) $
-    ECase (Var $ lvar fname lvar0 ++ "_val") (alts fname salts)
+    EBind (SFetch (lvar fname lvar0)) (Var (packName $ (unpackName $ lvar fname lvar0) ++ "_val")) $
+    ECase (Var $ packName $ unpackName (lvar fname lvar0) ++ "_val") (alts fname salts)
   SChkCase lvar0 salts ->
-    EBind (SFetch (lvar fname lvar0)) (Var (lvar fname lvar0 ++ "_val")) $
-    ECase (Var $ lvar fname lvar0 ++ "_val") (alts fname salts)
+    EBind (SFetch $ packName $ (unpackName $ lvar fname lvar0)) (Var $ packName $ unpackName (lvar fname lvar0) ++ "_val") $
+    ECase (Var $ packName $ unpackName (lvar fname lvar0) ++ "_val") (alts fname salts)
 
   --SProj lvar0 int -> SFetchI (lvar fname lvar0) (Just int)
 
@@ -176,12 +176,12 @@ defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat (sexp fname sexp0)
 alt :: Name -> [Exp] -> SAlt -> Exp
 alt fname defs = \case
   SConCase startIdx t nm names sexp0 ->
-    Alt (NodePat (Tag C (name nm)) (map (\(i,_n) -> fname ++ show i) ([startIdx ..] `zip` names)))
+    Alt (NodePat (Tag C (name nm)) (map (\(i,_n) -> packName $ unpackName fname ++ show i) ([startIdx ..] `zip` names)))
         (sexp fname sexp0)
 
   SConstCase cnst sexp0 ->
     let (ConstTagNode tag [Lit lit]) = literal cnst
-        cpatVar = fname ++ "_cpat_" ++ (map (\case { ' ' -> '_'; c -> c}) (show lit))
+        cpatVar = packName $ unpackName fname ++ "_cpat_" ++ (map (\case { ' ' -> '_'; c -> c}) (show lit))
     in Alt (NodePat tag [cpatVar]) $ ECase (Var cpatVar) $
         [ Alt (LitPat lit) (sexp fname sexp0) ] ++
         defs
@@ -272,7 +272,7 @@ primFn f ps = case f of
   LReadStr -> Grin.SApp "idris_read_str" ps
   LWriteStr -> Grin.SApp "idris_write_str" ps
 
-  LExternal name -> Grin.SApp (show name) ps
+  LExternal name -> Grin.SApp (packName $ show name) ps
   {-
   LSystemInfo -> undefined
   LFork -> undefined
@@ -296,11 +296,11 @@ val fname = \case
 
 lvar :: Name -> LVar -> Name
 lvar fname = \case
-  Idris.Loc loc -> fname ++ show loc
+  Idris.Loc loc -> packName $ unpackName fname ++ show loc
   Glob nm       -> name nm
 
 name :: Idris.Name -> Name
-name n = "idr_" ++ (Idris.showCG n)
+name n = packName $ "idr_" ++ (Idris.showCG n)
 
 -- Creates Nodes with Literals
 literal :: Idris.Const -> Val
