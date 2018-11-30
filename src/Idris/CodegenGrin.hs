@@ -1,6 +1,9 @@
 {-# LANGUAGE LambdaCase, TupleSections, RecordWildCards, TypeApplications #-}
 {-# LANGUAGE OverloadedStrings, ViewPatterns #-}
-module Idris.CodegenGrin(codegenGrin) where
+module Idris.CodegenGrin(
+    Options(..)
+  , codegenGrin
+  ) where
 
 import Control.Monad
 import Text.Show.Pretty hiding (Name)
@@ -71,14 +74,18 @@ generateRuntime =
 removeRuntime :: IO ()
 removeRuntime = removeFile "runtime.c"
 
-codegenGrin :: CodegenInfo -> IO ()
-codegenGrin CodegenInfo{..} = do
+data Options = Options
+  { cgOptimise :: Bool
+  }
+
+codegenGrin :: Options -> CodegenInfo -> IO ()
+codegenGrin Options{..} CodegenInfo{..} = do
   hSetBuffering stdout NoBuffering
   optimizeWith
     pipelineOpts
     (program simpleDecls)
     preparation
-    idrisOptimizations
+    (if cgOptimise then idrisOptimizations else [])
     (postProcessing outputFile)
   pure ()
 {-
@@ -150,7 +157,7 @@ sexp fname = \case
   -- TODO: Foreign function calls must handle pointers or they must be wrapped.
   SForeign t fun args -> foreignFun fname t fun args
 
-  SNothing -> traceShow "Erased value" $ SReturn (ConstTagNode (Tag C "Erased") [])
+  SNothing -> SReturn (ConstTagNode (Tag C "Erased") [])
   -- SError string -> traceShow ("Error with:" ++ string) $ Grin.SApp "prim_error" []
   e -> error $ printf "unsupported %s" (show e)
 
@@ -158,39 +165,60 @@ sexp fname = \case
 foreignFun fname _ (FStr "idris_int_print") [(_, arg)] = Grin.SApp "idris_int_print" [Var . lvar fname $ arg]
 foreignFun fname _ (FStr "fileEOF") [(_,lvar0)] = Grin.SApp "idris_ffi_file_eof" [Var . lvar fname $ lvar0]
 
-
 alts :: Name -> [SAlt] -> [Exp]
-alts fname alts =
-  (map (alt fname (map (defaultAlt fname) defs)) rest) ++
-  (map (defaultAlt fname) defs)
+alts fname as = concat [con2, cons2, defs2]
   where
-    -- There should be only one default
-    (defs, rest) = partition isDefault alts
-    isDefault (SDefaultCase _) = True
-    isDefault _                = False
+    (con0, cons0, defs0) = groupAlternatives as
+    defs1 = take 1 $ (if (length defs0 > 1) then (traceShow ("More than one def:",defs0)) else id) defs0
+    cons1 = constAlternativesByTag cons0
+    con2  = map (constructorAlt fname) con0
+    defs2 = map (defaultAlt fname) defs1
+    cons2 = map (constantAlts fname defs2) cons1
+
+groupAlternatives :: [SAlt] -> ([SAlt], [SAlt], [SAlt])
+groupAlternatives = go ([],[],[])
+  where
+    go (con, cons, def) = \case
+      []     -> (reverse con, reverse cons, reverse def)
+      (a:as) -> case a of
+        SConCase{}      -> go (a:con, cons, def) as
+        SConstCase{}    -> go (con, a:cons, def) as
+        SDefaultCase{}  -> go (con, cons, a:def) as
+
+constAlternativesByTag :: [SAlt] -> [[SAlt]]
+constAlternativesByTag = groupBy sameTag
+  where
+    sameTag (SConstCase c1 _) (SConstCase c2 _)
+      | ConstTagNode t1 _ <- literal c1
+      , ConstTagNode t2 _ <- literal c2
+      = t1 == t2
+
+constructorAlt :: Name -> SAlt -> Exp
+constructorAlt fname (SConCase startIdx t nm names sexp0) =
+  Alt (NodePat (Tag C (name nm)) (map (\(i,_n) -> packName $ unpackName fname ++ show i) ([startIdx ..] `zip` names)))
+      (sexp fname sexp0)
+
+constantAlts :: Name -> [Exp] -> [SAlt] -> Exp
+constantAlts fname defs as@(a@(SConstCase cnst _):_) =
+  Alt (NodePat tag [cpatVar]) $ ECase (Var cpatVar) $
+    (flip map as $ \(SConstCase c e) ->
+      let (ConstTagNode _ [Lit l]) = literal c
+      in (Alt (LitPat l) (sexp fname e)))
+    ++ defs
+  where
+    (ConstTagNode tag [Lit lit]) = literal cnst
+    cpatVar = packName $ unpackName fname ++ "_cpat_" ++ (map (\case { ' ' -> '_'; c -> c}) (show lit))
 
 defaultAlt :: Name -> SAlt -> Exp
 defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat (sexp fname sexp0)
 
--- The values which enters to the case are already fetches from the heap.
-alt :: Name -> [Exp] -> SAlt -> Exp
-alt fname defs = \case
-  SConCase startIdx t nm names sexp0 ->
-    Alt (NodePat (Tag C (name nm)) (map (\(i,_n) -> packName $ unpackName fname ++ show i) ([startIdx ..] `zip` names)))
-        (sexp fname sexp0)
-
-  SConstCase cnst sexp0 ->
-    let (ConstTagNode tag [Lit lit]) = literal cnst
-        cpatVar = packName $ unpackName fname ++ "_cpat_" ++ (map (\case { ' ' -> '_'; c -> c}) (show lit))
-    in Alt (NodePat tag [cpatVar]) $ ECase (Var cpatVar) $
-        [ Alt (LitPat lit) (sexp fname sexp0) ] ++
-        defs
-
 primFn :: Idris.PrimFn -> [SimpleVal] -> Exp
 primFn f ps = case f of
   LPlus   (Idris.ATInt intTy) -> Grin.SApp "idris_int_add" ps
+  LPlus   Idris.ATFloat       -> Grin.SApp "idris_float_add" ps
   LMinus  (Idris.ATInt intTy) -> Grin.SApp "idris_int_sub" ps
   LTimes  (Idris.ATInt intTy) -> Grin.SApp "idris_int_mul" ps
+  LTimes  Idris.ATFloat       -> Grin.SApp "idris_float_mul" ps
   LSDiv   (Idris.ATInt intTy) -> Grin.SApp "idris_int_div" ps
   LSDiv   Idris.ATFloat       -> Grin.SApp "idris_float_div" ps
   {-
@@ -309,9 +337,9 @@ literal = \case
   Idris.BI integer -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral integer)]
   Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString string]
   Idris.Ch char    -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral $ ord $ char)]
+  Idris.Fl double  -> ConstTagNode (Tag C "GrFloat") [Lit $ LFloat (realToFrac double)]
   {-
   Idris.B64 word64 -> LWord64 word64
-  Idris.Fl double -> traceShow ("TODO: literal sould implement Double " ++ show double) $ LFloat (realToFrac double)
   Idris.Str string -> traceShow ("TODO: literal should implement String " ++ string) $ LInt64 1234
   -}
 {-
@@ -334,11 +362,12 @@ pipelineOpts = defaultOpts
   , _poFailOnLint = False
   , _poSaveTypeEnv = True
   , _poStatistics = True
+  , _poLogging = False
   }
 
 preparation :: [PipelineStep]
 preparation =
-  [ SaveGrin "FromIdris"
+  [ SaveGrin (Rel "FromIdris")
   , T DeadProcedureElimination
 --  , PrintGrin ondullblack
   , HPT CompileHPT
@@ -348,7 +377,7 @@ preparation =
   , Statistics
   , SaveTypeEnv
 --  , HPT PrintHPTCode
-  , SaveGrin "high-level-code.grin"
+  , SaveGrin (Rel "high-level-code.grin")
   , Lint
   ]
 
@@ -377,7 +406,7 @@ idrisOptimizations =
 
 postProcessing :: String -> [PipelineStep]
 postProcessing outputFile =
-  [ SaveGrin "high-level-opt-code.grin"
+  [ SaveGrin (Abs outputFile)
 --  , HPT CompileHPT
 --  , HPT RunHPTPure
 --  , PrintTypeEnv

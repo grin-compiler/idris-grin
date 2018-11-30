@@ -51,6 +51,18 @@ idrisPrimOps = [prog|
     _prim_int_print idris_int_print0_1
     pure (CUnit)
 
+  idris_float_add idris_float_add0 idris_float_add1 =
+    (CGrFloat idris_float_add0_1) <- fetch idris_float_add0
+    (CGrFloat idris_float_add1_1) <- fetch idris_float_add1
+    idris_float_add3 <- _prim_float_add idris_float_add0_1 idris_float_add1_1
+    pure (CGrFloat idris_float_add3)
+
+  idris_float_mul idris_float_mul0 idris_float_mul1 =
+    (CGrFloat idris_float_mul0_1) <- fetch idris_float_mul0
+    (CGrFloat idris_float_mul1_1) <- fetch idris_float_mul1
+    idris_float_mul3 <- _prim_float_mul idris_float_mul0_1 idris_float_mul1_1
+    pure (CGrFloat idris_float_mul3)
+
   idris_int_add idris_int_add0 idris_int_add1 =
     (CGrInt idris_int_add0_1) <- fetch idris_int_add0
     (CGrInt idris_int_add1_1) <- fetch idris_int_add1
@@ -162,9 +174,8 @@ idrisPrimOps = [prog|
     pure (CGrInt idris_ls_ext3)
 
   idris_ch_int idris_ch_int1 =
-    (CGrChar idris_ch_int2) <- fetch idris_ch_int1
-    idris_ch_int3 <- _prim_char_int idris_ch_int2
-    pure (CGrInt idris_ch_int3)
+    (CGrInt idris_ch_int2) <- fetch idris_ch_int1
+    pure (CGrInt idris_ch_int2)
 
   prim__stdin =
     pure (CGrInt 0)

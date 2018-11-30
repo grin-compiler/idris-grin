@@ -11,18 +11,24 @@ import Idris.CodegenGrin
 
 import System.Environment
 import System.Exit
+import Data.List (isPrefixOf)
 
-data Opts = Opts { inputs :: [FilePath],
-                   output :: FilePath }
+data Opts = Opts
+  { inputs :: [FilePath]
+  , output :: FilePath
+  , optimise :: Bool
+  }
 
-showUsage = do putStrLn "Usage: idris-grin <ibc-files> [-o <output-file>]"
+
+showUsage = do putStrLn "Usage: idris-codegen-grin <ibc-files> [-o <output-file>]"
                exitWith ExitSuccess
 
 getOpts :: IO Opts
 getOpts = do xs <- getArgs
-             return $ process (Opts [] "a.out") xs
+             return $ process (Opts [] "a.out" True) xs
   where
     process opts ("-o":o:xs) = process (opts { output = o }) xs
+    process opts ("--no-opt":xs) = process (opts { optimise = False }) xs
     process opts (x:xs) = process (opts { inputs = x:inputs opts }) xs
     process opts [] = opts
 
@@ -31,10 +37,11 @@ cg_main opts = do elabPrims
                   loadInputs (inputs opts) Nothing
                   mainProg <- elabMain
                   ir <- compile (Via IBCFormat "grin") (output opts) (Just mainProg)
-                  runIO $ codegenGrin ir
+                  runIO $ codegenGrin (Options (optimise opts)) ir
 
 main :: IO ()
-main = do opts <- getOpts
-          if (null (inputs opts)) 
-             then showUsage
-             else runMain (cg_main opts)
+main = do
+  opts <- getOpts
+  if (null (inputs opts))
+    then showUsage
+    else runMain (cg_main opts)
