@@ -86,6 +86,8 @@ codegenGrin Options{..} CodegenInfo{..} = do
     (program simpleDecls)
     preparation
     (if cgOptimise then idrisOptimizations else [])
+    [Eff CalcEffectMap, Sharing CompileToAbstractProgram, Sharing RunAbstractProgramPure]
+    []
     (postProcessing outputFile)
   pure ()
 {-
@@ -101,7 +103,7 @@ codegenGrin Options{..} CodegenInfo{..} = do
 program :: [(Idris.Name, SDecl)] -> Exp
 program defs =
   bindNormalisation $
-  singleStaticAssignment $
+  staticSingleAssignment $
   Program $ primOps ++ map (function . snd) defs
  where Program primOps = idrisPrimOps
 
@@ -368,10 +370,10 @@ pipelineOpts = defaultOpts
 preparation :: [PipelineStep]
 preparation =
   [ SaveGrin (Rel "FromIdris")
-  , T DeadProcedureElimination
+  , T SimpleDeadFunctionElimination
 --  , PrintGrin ondullblack
-  , HPT CompileHPT
-  , HPT RunHPTPure
+  , HPT CompileToAbstractProgram
+  , HPT RunAbstractProgramPure
 --  , HPT PrintHPTResult
 --  , PrintTypeEnv
   , Statistics
@@ -391,10 +393,9 @@ idrisOptimizations =
   , SparseCaseOptimisation
   , UpdateElimination
   , CopyPropagation
-  , DeadProcedureElimination
-  , BindNormalisation -- FIX bug in dead variable elimination
-  , DeadVariableElimination
-  , DeadParameterElimination
+  , SimpleDeadFunctionElimination
+  , SimpleDeadVariableElimination
+  , SimpleDeadParameterElimination
   , CommonSubExpressionElimination
   , CaseCopyPropagation
   , CaseHoisting

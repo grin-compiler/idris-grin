@@ -4,11 +4,11 @@ resolver: nightly-2018-11-07
 allow-newer: true
 
 packages:
-  - '.'
+#  - '.'
 #  - '../grin/grin'
   - location:
       git: https://github.com/grin-tech/grin
-      commit: 6d145d18ab432555e188260e64a4caa8b8c92436
+      commit: f9642da9ad86d5139765bb48f99c3db5d9f4ee15
     subdirs:
       - grin
     extra-dep: true
@@ -26,6 +26,7 @@ extra-deps:
   - cheapskate-0.1.1.1
   - megaparsec-6.5.0
   - neat-interpolation-0.3.2.2
+  - set-extra-1.4.1
 
 flags:
   llvm-hs:
