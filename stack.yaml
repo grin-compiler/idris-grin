@@ -4,7 +4,7 @@ resolver: nightly-2018-11-07
 allow-newer: true
 
 packages:
-#  - '.'
+  - '.'
 #  - '../grin/grin'
   - location:
       git: https://github.com/grin-tech/grin
