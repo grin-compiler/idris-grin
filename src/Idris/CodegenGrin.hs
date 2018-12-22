@@ -76,17 +76,18 @@ removeRuntime = removeFile "runtime.c"
 
 data Options = Options
   { cgOptimise :: Bool
+  , cgQuiet    :: Bool
   }
 
 codegenGrin :: Options -> CodegenInfo -> IO ()
 codegenGrin Options{..} CodegenInfo{..} = do
   hSetBuffering stdout NoBuffering
   optimizeWith
-    pipelineOpts
+    (pipelineOpts { _poLogging = not cgQuiet })
     (program simpleDecls)
     preparation
     (if cgOptimise then idrisOptimizations else [])
-    [Eff CalcEffectMap, Sharing CompileToAbstractProgram, Sharing RunAbstractProgramPure]
+    [Eff CalcEffectMap, Sharing Compile, Sharing RunPure]
     []
     (postProcessing outputFile)
   pure ()
@@ -372,8 +373,8 @@ preparation =
   [ SaveGrin (Rel "FromIdris")
   , T SimpleDeadFunctionElimination
 --  , PrintGrin ondullblack
-  , HPT CompileToAbstractProgram
-  , HPT RunAbstractProgramPure
+  , HPT Compile
+  , HPT RunPure
 --  , HPT PrintHPTResult
 --  , PrintTypeEnv
   , Statistics
