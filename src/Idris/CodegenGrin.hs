@@ -87,7 +87,7 @@ codegenGrin Options{..} CodegenInfo{..} = do
     (program simpleDecls)
     preparation
     (if cgOptimise then idrisOptimizations else [])
-    [Eff CalcEffectMap, Sharing Compile, Sharing RunPure]
+    []
     []
     (postProcessing outputFile)
   pure ()
@@ -105,8 +105,8 @@ program :: [(Idris.Name, SDecl)] -> Exp
 program defs =
   bindNormalisation $
   staticSingleAssignment $
-  Program $ primOps ++ map (function . snd) defs
- where Program primOps = idrisPrimOps
+  Program [] $ primOps ++ map (function . snd) defs
+ where Program _ primOps = idrisPrimOps
 
 function :: SDecl -> Exp
 function (SFun fname params _int body) =

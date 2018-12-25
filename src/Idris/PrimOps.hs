@@ -187,7 +187,7 @@ idrisPrimOps = [prog|
     pure (CGrInt 2)
 
   grinMain =
-    r <- idr_{runMain_0}
+    r <- "idr_{runMain_0}"
     pure ()
 |]
 
