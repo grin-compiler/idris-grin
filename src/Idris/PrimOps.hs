@@ -148,6 +148,11 @@ idrisPrimOps = [prog|
     idris_int_str2 <- _prim_int_str idris_int_str1_0
     pure (CGrString idris_int_str2)
 
+  idris_str_int idris_str_int1 =
+    (CGrString idris_str_int1_0) <- fetch idris_str_int1
+    idris_str_int2 <- _prim_str_int idris_str_int1_0
+    pure (CGrInt idris_str_int2)
+
   idris_int_float idris_int_float1 =
     (CGrInt idris_int_float1_0) <- fetch idris_int_float1
     idris_int_float2 <- _prim_int_float idris_int_float1_0

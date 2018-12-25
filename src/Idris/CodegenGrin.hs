@@ -268,9 +268,7 @@ primFn f ps = case f of
 }
 -}
   LIntStr intTy -> Grin.SApp "idris_int_str" ps
-{-
-  LStrInt intTy -> undefined
--}
+  LStrInt intTy -> Grin.SApp "idris_str_int" ps
   LFloatStr -> Grin.SApp "idris_float_str" ps
 {-  LStrFloat -> undefined -}
   LChInt intTy -> Grin.SApp "idris_ch_int" ps
