@@ -5,17 +5,26 @@ allow-newer: true
 
 packages:
   - '.'
-  - '../grin/grin'
-#  - location:
-#      git: https://github.com/grin-tech/grin
-#    subdirs:
-#      - grin
-#    extra-dep: true
+#  - '../grin/grin'
+  - location:
+      git: https://github.com/grin-tech/grin
+      commit: 1c0f9c01b6afa8c5791dcab2f7e2404e7e2df6c6
+    subdirs:
+      - grin
+    extra-dep: true
 
   - location:
       git: https://github.com/llvm-hs/llvm-hs-pretty
       commit: 0d04346ea179e96797a284d094e44e538fbddcf2
     extra-dep: true
+
+  - location:
+      git: https://github.com/csabahruska/llvm-hs.git
+      commit: 37aaa694d2f7907634f7af602d9aae125101db8d
+    subdirs:
+      - llvm-hs
+    extra-dep: true
+
 
 extra-deps:
   - monad-gen-0.3.0.1
