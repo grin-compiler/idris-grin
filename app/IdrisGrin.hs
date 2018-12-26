@@ -25,6 +25,16 @@ data Opts = Opts
   , optimise :: Bool
   , quiet :: Bool
   , help :: Bool
+  , lint :: Bool
+  }
+
+defaultOpts = Opts
+  { inputs = []
+  , output = "a.out"
+  , optimise = True
+  , quiet = False
+  , help = False
+  , lint = True
   }
 
 options :: [OptDescr (Endo Opts)]
@@ -33,6 +43,7 @@ options =
   , Option ['q'] ["quiet"]    (NoArg $ Endo $ \opts -> opts { quiet = True }) "Do not log to stdout"
   , Option []    ["O0"]       (NoArg $ Endo $ \opts -> opts { optimise = False }) "No optimisation"
   , Option ['h'] ["help"]     (NoArg $ Endo $ \opts -> opts { help = True }) "Print help"
+  , Option []    ["no-lint"]  (NoArg $ Endo $ \opts -> opts { lint = False }) "Turn off linting intermediate results."
   ]
 
 getOpts :: IO (Maybe Opts)
@@ -42,7 +53,7 @@ getOpts = do
     (os, is, []) -> Just $
       appEndo
         (mconcat (os ++ map (\i -> Endo (\opts -> opts { inputs = i:inputs opts })) is))
-        (Opts [] "a.out" True False False)
+        Main.defaultOpts
     _ -> Nothing
 
 showUsage :: IO ()
@@ -57,7 +68,12 @@ cg_main opts = do
   loadInputs (inputs opts) Nothing
   mainProg <- elabMain
   ir <- compile (Via IBCFormat "grin") (output opts) (Just mainProg)
-  runIO $ codegenGrin (Options (optimise opts) (quiet opts)) ir
+  let options = Options
+        { cgOptimise = optimise opts
+        , cgQuiet = quiet opts
+        , cgLintOnChange = lint opts
+        }
+  runIO $ codegenGrin options ir
 
 main :: IO ()
 main = do

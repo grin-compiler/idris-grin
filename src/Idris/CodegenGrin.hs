@@ -77,13 +77,21 @@ removeRuntime = removeFile "runtime.c"
 data Options = Options
   { cgOptimise :: Bool
   , cgQuiet    :: Bool
+  , cgLintOnChange :: Bool
   }
 
 codegenGrin :: Options -> CodegenInfo -> IO ()
 codegenGrin Options{..} CodegenInfo{..} = do
   hSetBuffering stdout NoBuffering
   optimizeWith
-    (pipelineOpts { _poLogging = not cgQuiet })
+    (defaultOpts
+      { _poOutputDir = "./.idris/"
+      , _poFailOnLint = False
+      , _poSaveTypeEnv = True
+      , _poStatistics = True
+      , _poLogging = not cgQuiet
+      , _poLintOnChange = cgLintOnChange
+      })
     (program simpleDecls)
     preparation
     (if cgOptimise then idrisOptimizations else [])
@@ -167,6 +175,8 @@ sexp fname = \case
 
 foreignFun fname _ (FStr "idris_int_print") [(_, arg)] = Grin.SApp "idris_int_print" [Var . lvar fname $ arg]
 foreignFun fname _ (FStr "fileEOF") [(_,lvar0)] = Grin.SApp "idris_ffi_file_eof" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_usleep") [(_,lvar0)] = Grin.SApp "idris_usleep" [Var . lvar fname $ lvar0]
+foreignFun fname _ rest args = error $ show rest ++ " " ++ show args
 
 alts :: Name -> [SAlt] -> [Exp]
 alts fname as = concat [con2, cons2, defs2]
@@ -357,15 +367,6 @@ literal = \case
 -}
   x -> error $ printf "unsupported literal %s" (show x)
 
-pipelineOpts :: PipelineOpts
-pipelineOpts = defaultOpts
-  { _poOutputDir = "./.idris/"
-  , _poFailOnLint = False
-  , _poSaveTypeEnv = True
-  , _poStatistics = True
-  , _poLogging = False
-  }
-
 preparation :: [PipelineStep]
 preparation =
   [ SaveGrin (Rel "FromIdris")
@@ -387,9 +388,9 @@ idrisOptimizations =
   [ BindNormalisation
   , InlineEval
   , InlineApply
-  , EvaluatedCaseElimination
   , TrivialCaseElimination
   , SparseCaseOptimisation
+  , EvaluatedCaseElimination
   , UpdateElimination
   , CopyPropagation
   , SimpleDeadFunctionElimination

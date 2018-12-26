@@ -182,6 +182,11 @@ idrisPrimOps = [prog|
     (CGrInt idris_ch_int2) <- fetch idris_ch_int1
     pure (CGrInt idris_ch_int2)
 
+  idris_usleep idris_usleep1 =
+    (CGrInt idris_usleep1_0) <- fetch idris_usleep1
+    _prim_usleep idris_usleep1_0
+    pure () -- Maybe it needs another void like type?
+
   prim__stdin =
     pure (CGrInt 0)
 
