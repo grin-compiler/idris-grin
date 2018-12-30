@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings, ViewPatterns #-}
 module Idris.CodegenGrin(
     Options(..)
+  , defaultOptions
   , codegenGrin
   ) where
 
@@ -75,28 +76,42 @@ removeRuntime :: IO ()
 removeRuntime = removeFile "runtime.c"
 
 data Options = Options
-  { cgOptimise :: Bool
-  , cgQuiet    :: Bool
-  , cgLintOnChange :: Bool
+  { inputs :: [FilePath]
+  , output :: FilePath
+  , optimise :: Bool
+  , quiet :: Bool
+  , help :: Bool
+  , lint :: Bool
+  , outputDir :: String
+  , deadCodeElim :: Bool -- Interprocedural dead code elimination
+  }
+
+defaultOptions = Options
+  { inputs = []
+  , output = "a.out"
+  , optimise = True
+  , quiet = False
+  , help = False
+  , lint = True
+  , outputDir = ".idris"
+  , deadCodeElim = False
   }
 
 codegenGrin :: Options -> CodegenInfo -> IO ()
-codegenGrin Options{..} CodegenInfo{..} = do
+codegenGrin o@Options{..} CodegenInfo{..} = do
   hSetBuffering stdout NoBuffering
   optimizeWith
     (defaultOpts
-      { _poOutputDir = "./.idris/"
+      { _poOutputDir = outputDir
       , _poFailOnLint = False
       , _poSaveTypeEnv = True
       , _poStatistics = True
-      , _poLogging = not cgQuiet
-      , _poLintOnChange = cgLintOnChange
+      , _poLogging = not quiet
+      , _poLintOnChange = lint
       })
     (program simpleDecls)
     preparation
-    (if cgOptimise then idrisOptimizations else [])
-    []
-    []
+    (idrisOptimizations o)
     (postProcessing outputFile)
   pure ()
 {-
@@ -370,21 +385,21 @@ literal = \case
 preparation :: [PipelineStep]
 preparation =
   [ SaveGrin (Rel "FromIdris")
-  , T SimpleDeadFunctionElimination
+  , T RunAnalysis SimpleDeadFunctionElimination
 --  , PrintGrin ondullblack
-  , HPT Compile
-  , HPT RunPure
 --  , HPT PrintHPTResult
 --  , PrintTypeEnv
   , Statistics
   , SaveTypeEnv
 --  , HPT PrintHPTCode
   , SaveGrin (Rel "high-level-code.grin")
+  , HPTPass
   , Lint
   ]
 
-idrisOptimizations :: [Transformation]
-idrisOptimizations =
+idrisOptimizations :: Options -> [Transformation]
+idrisOptimizations o | not (optimise o) = []
+idrisOptimizations o =
   [ BindNormalisation
   , InlineEval
   , InlineApply
@@ -403,7 +418,15 @@ idrisOptimizations =
   , ArityRaising
   , LateInlining
   , NonSharedElimination
-  ]
+  ] ++
+  if (deadCodeElim o)
+    then
+      [ DeadFunctionElimination
+      , DeadVariableElimination
+      , DeadParameterElimination
+      , DeadDataElimination
+      ]
+    else []
 
 postProcessing :: String -> [PipelineStep]
 postProcessing outputFile =

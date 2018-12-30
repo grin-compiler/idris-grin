@@ -18,42 +18,25 @@ import Data.Monoid
 import Text.Read (readMaybe)
 
 
-
-data Opts = Opts
-  { inputs :: [FilePath]
-  , output :: FilePath
-  , optimise :: Bool
-  , quiet :: Bool
-  , help :: Bool
-  , lint :: Bool
-  }
-
-defaultOpts = Opts
-  { inputs = []
-  , output = "a.out"
-  , optimise = True
-  , quiet = False
-  , help = False
-  , lint = True
-  }
-
-options :: [OptDescr (Endo Opts)]
+options :: [OptDescr (Endo Options)]
 options =
-  [ Option ['o'] ["output"]   (ReqArg (\a -> Endo $ \opts -> opts { output = a }) "FILE") "Grin output FILE (does not work yet)"
-  , Option ['q'] ["quiet"]    (NoArg $ Endo $ \opts -> opts { quiet = True }) "Do not log to stdout"
-  , Option []    ["O0"]       (NoArg $ Endo $ \opts -> opts { optimise = False }) "No optimisation"
-  , Option ['h'] ["help"]     (NoArg $ Endo $ \opts -> opts { help = True }) "Print help"
-  , Option []    ["no-lint"]  (NoArg $ Endo $ \opts -> opts { lint = False }) "Turn off linting intermediate results."
+  [ Option ['o'] ["output"]     (ReqArg (\a -> Endo $ \opts -> opts { output = a }) "FILE") "Grin output FILE (does not work yet)"
+  , Option ['q'] ["quiet"]      (NoArg $ Endo $ \opts -> opts { quiet = True }) "Do not log to stdout"
+  , Option []    ["O0"]         (NoArg $ Endo $ \opts -> opts { optimise = False }) "No optimisation"
+  , Option ['h'] ["help"]       (NoArg $ Endo $ \opts -> opts { help = True }) "Print help"
+  , Option []    ["no-lint"]    (NoArg $ Endo $ \opts -> opts { lint = False }) "Turn off linting intermediate results."
+  , Option []    ["output-dir"] (ReqArg (\a -> Endo $ \opts -> opts { outputDir = a }) "DIR") "Grin output directory."
+  , Option []    ["dead-code-elim"] (NoArg $ Endo $ \opts -> opts { deadCodeElim = True }) "Turn on interprocedural dead code elimination."
   ]
 
-getOpts :: IO (Maybe Opts)
+getOpts :: IO (Maybe Options)
 getOpts = do
   argv <- getArgs
   pure $ case getOpt Permute options argv of
     (os, is, []) -> Just $
       appEndo
         (mconcat (os ++ map (\i -> Endo (\opts -> opts { inputs = i:inputs opts })) is))
-        Main.defaultOpts
+        Idris.CodegenGrin.defaultOptions
     _ -> Nothing
 
 showUsage :: IO ()
@@ -62,20 +45,15 @@ showUsage = do
   let header = unwords [ name, "[OPTION...]", "FILE" ]
   putStrLn $ usageInfo header options
 
-cg_main :: Opts -> Idris ()
+cg_main :: Options -> Idris ()
 cg_main opts = do
   elabPrims
   loadInputs (inputs opts) Nothing
   mainProg <- elabMain
   ir <- compile (Via IBCFormat "grin") (output opts) (Just mainProg)
-  let options = Options
-        { cgOptimise = optimise opts
-        , cgQuiet = quiet opts
-        , cgLintOnChange = lint opts
-        }
-  runIO $ codegenGrin options ir
+  runIO $ codegenGrin opts ir
 
 main :: IO ()
 main = do
   opts <- getOpts
-  maybe showUsage (\o@Opts{..} -> if help then showUsage else runMain $ cg_main o) opts
+  maybe showUsage (\o@Options{..} -> if help then showUsage else runMain $ cg_main o) opts
