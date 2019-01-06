@@ -385,7 +385,7 @@ literal = \case
 preparation :: [PipelineStep]
 preparation =
   [ SaveGrin (Rel "FromIdris")
-  , T RunAnalysis SimpleDeadFunctionElimination
+  , T SimpleDeadFunctionElimination
 --  , PrintGrin ondullblack
 --  , HPT PrintHPTResult
 --  , PrintTypeEnv

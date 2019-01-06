@@ -35,4 +35,6 @@ install:
 
 script:
   - stack install
+
+after_script:
   - stack exec -- idris-codegen-test
