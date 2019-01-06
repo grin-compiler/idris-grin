@@ -13,6 +13,7 @@ import Debug.Trace
 import qualified Data.Text as Text
 import Data.Char (ord)
 import Data.List
+import Data.String (fromString)
 import Control.Exception
 
 import IRTS.CodegenCommon
@@ -361,7 +362,7 @@ literal :: Idris.Const -> Val
 literal = \case
   Idris.I int      -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral int)]
   Idris.BI integer -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral integer)]
-  Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString string]
+  Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString $ fromString string]
   Idris.Ch char    -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral $ ord $ char)]
   Idris.Fl double  -> ConstTagNode (Tag C "GrFloat") [Lit $ LFloat (realToFrac double)]
   {-
