@@ -35,7 +35,3 @@ install:
 
 script:
   - stack install
-
-after_script:
-  # https://docs.travis-ci.com/user/common-build-problems/#build-times-out-because-no-output-was-received
-  - travis_wait stack exec -- idris-codegen-test
