@@ -129,8 +129,8 @@ program :: [(Idris.Name, SDecl)] -> Exp
 program defs =
   bindNormalisation $
   staticSingleAssignment $
-  Program [] $ primOps ++ map (function . snd) defs
- where Program _ primOps = idrisPrimOps
+  Program exts $ primOps ++ map (function . snd) defs
+ where Program exts primOps = idrisPrimOps
 
 function :: SDecl -> Exp
 function (SFun fname params _int body) =
