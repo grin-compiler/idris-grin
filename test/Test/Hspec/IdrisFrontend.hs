@@ -1,18 +1,30 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Test.Hspec.IdrisFrontend where
 
+import Control.Arrow
+import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 import Control.Monad.Trans
 import Control.Monad.Trans.Error
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.IORef
 import GHC.IO.Handle
 import System.Directory (doesFileExist, removeFile)
+import System.FilePath ((</>))
 import System.Exit
 import System.Process
 import Test.Hspec.Core.Spec
 import Text.Printf
+
+import System.Directory
+import Data.Char (isDigit)
+import Data.List (isSuffixOf)
+import qualified Data.Map as Map
 
 
 instance Error ResultStatus where
@@ -29,20 +41,22 @@ data IdrisCodeGen
     { source :: String
     , input  :: Maybe String
     , optimised :: OptMode
+    , timeoutInSecs :: Int
     }
 
-idris :: OptMode -> String -> IdrisCodeGen
-idris o fp = IdrisCodeGen fp Nothing o
+idris :: OptMode -> Int -> String -> IdrisCodeGen
+idris o t fp = IdrisCodeGen fp Nothing o t
 
-idrisWithStdin :: OptMode -> String -> String -> IdrisCodeGen
-idrisWithStdin o fp inp = IdrisCodeGen fp (Just inp) o
+idrisWithStdin :: OptMode -> Int -> String -> String -> IdrisCodeGen
+idrisWithStdin o t fp inp = IdrisCodeGen fp (Just inp) o t
 
--- TODO: Handle xit. The test case runs even if xit is the runner,
+
 instance Example IdrisCodeGen where
   type Arg IdrisCodeGen = ()
   evaluateExample (IdrisCodeGen{..}) params actionWith progressCallback = do
     result <- newIORef $ Result "" Success
     actionWith $ \() -> do
+      removeDirectoryRecursive ".idris"
       let steps = 12
       progressCallback (0, steps)
       doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
@@ -87,7 +101,7 @@ instance Example IdrisCodeGen where
         enterInput mIn
         runTestExitCode <- lift $ waitForProcess runTestPh
         lift $ progressCallback (8, steps)
-        lift $ removeFile "test.bin"
+        lift $ doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
         when (runTestExitCode /= ExitSuccess) $ do
           lift $ hClose out
           throwError $ Failure Nothing $ Reason $ "Test process exited with: " ++ show runTestExitCode
@@ -97,16 +111,70 @@ instance Example IdrisCodeGen where
         (mIn, Just out, _err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
         lift $ progressCallback (10, steps)
         enterInput mIn
-        idrisGrinExitCode <- lift $ waitForProcess idrisGrinPh
+        idrisGrinExitCode <- lift $ timeout (timeoutInSecs * 1000) idrisGrinPh
         lift $ progressCallback (11, steps)
-        lift $ removeFile "test.grin"
-        when (idrisGrinExitCode /= ExitSuccess) $ do
-          lift $ hClose out
-          throwError $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
+        lift $ doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
+        case idrisGrinExitCode of
+          ExitSuccess       -> pure ()
+          ExitFailure (-15) -> pure () -- Timeout, killed, etc
+          _ -> do
+            lift $ hClose out
+            throwError $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
         grinOut <- lift $ hGetContents out
 
         lift $ progressCallback (12, steps)
         when (grinOut /= testOut) $
-          throwError $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
+          case optimised of
+            NonOptimised -> throwError $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
+            Optimised    -> bisect enterInput timeoutInSecs ".idris" stdInCreate testOut
       writeIORef result res
     readIORef result
+
+bisect enterInput timeoutInSecs directory stdInCreate output = do
+  files <- fmap (filter isGrinFile) $ lift $ listDirectory directory
+  let fileMap = createFileMap files
+  let range = findRange fileMap
+  let loop lout !mn !mx | mn >= mx     = throwError $ Failure Nothing $ Reason "Range search exhausted: No clue where the error happens."
+                        | mn + 1 == mx = throwError $ Failure Nothing $ ExpectedButGot Nothing output lout
+      loop lout !mn !mx = do
+        let md = (mx - mn) `div` 2
+        mout <- run $ printf "stack exec grin -- %s --quiet --eval" (fromJust $ Map.lookup md fileMap)
+        maybe
+          (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, Shrinking has stopped.") output lout)
+          (\out -> uncurry (loop out) $ if (out == output) then (md, mx) else (mn, md))
+          mout
+
+  uncurry (loop "") range
+  where
+    run (cmd :: String) = do
+      lift $ print cmd
+      let runGrin = (shell cmd) { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
+      (mIn, Just out, Just err, cmdPh) <- lift $ createProcess_ cmd runGrin
+      enterInput mIn
+      cmdExitCode <- lift $ timeout (timeoutInSecs * 1000) cmdPh
+      case cmdExitCode of
+        ExitSuccess       -> fmap Just $ lift $ hGetContents out
+        ExitFailure (-15) -> pure $ Just "Timeout!" -- TODO: Improve
+        _ -> do lift $ hClose out
+                err <- lift $ hGetContents err
+                (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") output err)
+                pure Nothing
+
+    noOfDigits = 3
+    isGrinFile name = (all isDigit (take noOfDigits name)) && ".grin" `isSuffixOf` name
+    createFileMap files = Map.fromList $
+      [ (itr, directory </> name)
+      | name <- files
+      , let itr = read @Int (take noOfDigits name)
+      ]
+    findRange = (minimum &&& maximum) . Map.keys
+
+{- There is no garantee that the process will be killed. -}
+timeout :: Int -> ProcessHandle -> IO ExitCode
+timeout ms h | ms <= 0 = do
+  terminateProcess h
+  waitForProcess h
+timeout ms h = do
+  threadDelay (100 * 1000)
+  mec <- getProcessExitCode h
+  maybe (timeout (ms - 100) h) pure mec

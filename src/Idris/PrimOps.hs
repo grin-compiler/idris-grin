@@ -3,9 +3,10 @@ module Idris.PrimOps where
 
 import Grin.Grin
 import Grin.TH
+import Grin.PrimOpsPrelude
 
 
-idrisPrimOps = [prog|
+idrisPrimOps = withPrimPrelude [prog|
   idris_int_eq idris_int_eq0 idris_int_eq1 =
     (CGrInt idris_int_eq0_1) <- fetch idris_int_eq0
     (CGrInt idris_int_eq1_1) <- fetch idris_int_eq1
