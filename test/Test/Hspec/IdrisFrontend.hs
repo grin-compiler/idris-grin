@@ -25,6 +25,7 @@ import System.Directory
 import Data.Char (isDigit)
 import Data.List (isSuffixOf)
 import qualified Data.Map as Map
+import Data.Time.Clock
 
 
 instance Error ResultStatus where
@@ -44,6 +45,7 @@ data IdrisCodeGen
     , timeoutInSecs :: Int
     }
 
+
 idris :: OptMode -> Int -> String -> IdrisCodeGen
 idris o t fp = IdrisCodeGen fp Nothing o t
 
@@ -56,7 +58,7 @@ instance Example IdrisCodeGen where
   evaluateExample (IdrisCodeGen{..}) params actionWith progressCallback = do
     result <- newIORef $ Result "" Success
     actionWith $ \() -> do
-      removeDirectoryRecursive ".idris"
+      doesDirectoryExist ".idris" >>= flip when (removeDirectoryRecursive ".idris")
       let steps = 12
       progressCallback (0, steps)
       doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
@@ -178,3 +180,22 @@ timeout ms h = do
   threadDelay (100 * 1000)
   mec <- getProcessExitCode h
   maybe (timeout (ms - 100) h) pure mec
+
+-- * Timed examples
+
+timed :: a -> Timed a
+timed = Timed
+
+data Timed a = Timed a
+
+instance Example a => Example (Timed a) where
+  type Arg (Timed a) = Arg a
+  evaluateExample (Timed a) params actionWith progressCallback = do
+    start  <- getCurrentTime
+    result <- safeEvaluateExample a params actionWith progressCallback
+    end    <- getCurrentTime
+    let diff = (showMS $ toRational $ diffUTCTime end start)
+    pure $ result { resultInfo = resultInfo result ++ " " ++ diff }
+    where
+      showMS :: Rational -> String
+      showMS t = printf "%.6f ms" (realToFrac $ 1E3 * t :: Double)
