@@ -32,3 +32,18 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
         , "search 1"
         , "quit"
         ]
+    it "TDD 05 - 01 IO Intro" $ timed $ idrisWithStdin
+      mode 60
+      "test/tdd/chapter05/01_IOIntro.idr"
+      $ unlines
+        [ "3"
+        , "y"
+        , "1"
+        , "n"
+        , "1", "2", "3"
+        , "1", "2", ""
+        , "1", "2", ""
+        ]
+    it "TDD 06 - 01 Type Level Functions" $ timed $ idris
+      mode 60
+      "test/tdd/chapter06/01TypeLevelFuns.idr"

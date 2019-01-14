@@ -72,4 +72,3 @@ main = do
   print res3
   print anyVect
   zipInputs
-
