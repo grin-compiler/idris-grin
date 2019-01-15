@@ -47,3 +47,14 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
     it "TDD 06 - 01 Type Level Functions" $ timed $ idris
       mode 60
       "test/tdd/chapter06/01TypeLevelFuns.idr"
+    it "TDD 06 - 02 DataStore" $ timed $ idrisWithStdin
+      mode 60
+      "test/tdd/chapter05/02_DataStore.idr"
+      $ unlines
+        [ "schema Int String"
+        , "add 99 \"Red ballons\""
+        , "add 76 \"Trombones\""
+        , "schame String String Int"
+        , "get 1"
+        , "quit"
+        ]
