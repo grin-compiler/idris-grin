@@ -27,6 +27,7 @@ options =
   , Option []    ["no-lint"]    (NoArg $ Endo $ \opts -> opts { lint = False }) "Turn off linting intermediate results."
   , Option []    ["output-dir"] (ReqArg (\a -> Endo $ \opts -> opts { outputDir = a }) "DIR") "Grin output directory."
   , Option []    ["dead-code-elim"] (NoArg $ Endo $ \opts -> opts { deadCodeElim = True }) "Turn on interprocedural dead code elimination."
+  , Option []    ["binary-intermed"] (NoArg $ Endo $ \opts -> opts { saveInBinary = True }) "Save intermediate results in binary format too."
   ]
 
 getOpts :: IO (Maybe Options)

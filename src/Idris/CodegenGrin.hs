@@ -85,6 +85,7 @@ data Options = Options
   , lint :: Bool
   , outputDir :: String
   , deadCodeElim :: Bool -- Interprocedural dead code elimination
+  , saveInBinary :: Bool
   }
 
 defaultOptions = Options
@@ -96,6 +97,7 @@ defaultOptions = Options
   , lint = True
   , outputDir = ".idris"
   , deadCodeElim = False
+  , saveInBinary = False
   }
 
 codegenGrin :: Options -> CodegenInfo -> IO ()
@@ -109,6 +111,7 @@ codegenGrin o@Options{..} CodegenInfo{..} = do
       , _poStatistics = True
       , _poLogging = not quiet
       , _poLintOnChange = lint
+      , _poSaveBinary = saveInBinary
       })
     (program simpleDecls)
     preparation

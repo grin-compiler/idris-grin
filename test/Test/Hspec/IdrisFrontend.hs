@@ -28,6 +28,7 @@ import qualified Data.Map as Map
 import Data.Time.Clock
 
 
+
 instance Error ResultStatus where
   noMsg  = Failure Nothing NoReason
   strMsg = Failure Nothing . Reason
@@ -79,7 +80,7 @@ instance Example IdrisCodeGen where
       let runTest = (shell "./test.bin")
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
       let idrisGrinCmd = case optimised of
-            Optimised     -> "stack exec idris -- %s --codegen grin -o test.grin --cg-opt --quiet"
+            Optimised     -> "stack exec idris -- %s --codegen grin -o test.grin --cg-opt --quiet --cg-opt --binary-intermed"
             NonOptimised  -> "stack exec idris -- %s --codegen grin -o test.grin --cg-opt --O0 --cg-opt --quiet"
       let idrisGrin = (shell (printf idrisGrinCmd source))
                       { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
@@ -139,8 +140,8 @@ bisect enterInput timeoutInSecs directory stdInCreate output = do
   let loop lout !mn !mx | mn >= mx     = throwError $ Failure Nothing $ Reason "Range search exhausted: No clue where the error happens."
                         | mn + 1 == mx = throwError $ Failure Nothing $ ExpectedButGot Nothing output lout
       loop lout !mn !mx = do
-        let md = (mx - mn) `div` 2
-        mout <- run $ printf "stack exec grin -- %s --quiet --eval" (fromJust $ Map.lookup md fileMap)
+        let md = ((mx - mn) `div` 2) + mn
+        mout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup md fileMap)
         maybe
           (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, Shrinking has stopped.") output lout)
           (\out -> uncurry (loop out) $ if (out == output) then (md, mx) else (mn, md))
@@ -163,7 +164,7 @@ bisect enterInput timeoutInSecs directory stdInCreate output = do
                 pure Nothing
 
     noOfDigits = 3
-    isGrinFile name = (all isDigit (take noOfDigits name)) && ".grin" `isSuffixOf` name
+    isGrinFile name = (all isDigit (take noOfDigits name)) && ".binary" `isSuffixOf` name
     createFileMap files = Map.fromList $
       [ (itr, directory </> name)
       | name <- files

@@ -4,6 +4,10 @@ import Control.Monad (forM_)
 import Test.Hspec
 import Test.Hspec.IdrisFrontend
 
+{-
+We keep the failing test cases for reference and regression detecting.
+-}
+
 spec :: Spec
 spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] $ \mode ->
   describe (show mode) $ do
