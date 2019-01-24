@@ -98,7 +98,7 @@ setSchema s sc = case size s of
 
 parse : (schema : Schema) -> (input : String) -> Maybe (Command schema)
 parse sch input = case span (/= ' ') input of
-  (cmd, args) => parseCommand sch cmd args
+  (cmd, args) => parseCommand sch cmd (ltrim args)
 
 display : SchemaType schema -> String
 display {schema = SString} item = item

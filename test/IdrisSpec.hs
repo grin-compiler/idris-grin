@@ -58,7 +58,7 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
         [ "schema Int String"
         , "add 99 \"Red ballons\""
         , "add 76 \"Trombones\""
-        , "schame String String Int"
+        , "schema String String Int"
         , "get 1"
         , "quit"
         ]
