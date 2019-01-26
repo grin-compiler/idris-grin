@@ -188,7 +188,7 @@ sexp fname = \case
   SForeign t fun args -> foreignFun fname t fun args
 
   SNothing -> SReturn (ConstTagNode (Tag C "Erased") [])
-  -- SError string -> traceShow ("Error with:" ++ string) $ Grin.SApp "prim_error" []
+  SError msg -> Grin.SApp "idris_error" [Lit $ LString $ Text.pack msg]
   e -> error $ printf "unsupported %s" (show e)
 
 

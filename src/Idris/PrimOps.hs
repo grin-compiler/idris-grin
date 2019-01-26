@@ -196,6 +196,9 @@ idrisPrimOps = withPrimPrelude [prog|
     _prim_usleep idris_usleep1_0
     pure () -- Maybe it needs another void like type?
 
+  idris_error idris_error1 =
+    _prim_error idris_error1
+
   prim__stdin =
     pure (CGrInt 0)
 
