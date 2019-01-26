@@ -58,6 +58,10 @@ Ord Album where
           diff_year => diff_year
         diff_artist => diff_artist
 
+Show Album where
+  show (MkAlbum artist title year)
+    = title ++ " by " ++ artist ++ " (released " ++ show year ++ ")"
+
 main : IO ()
 main = do
   printLn "Main"
@@ -69,3 +73,4 @@ main = do
   printLn $ heroes > clouds
   printLn $ help <= rubbersoul
   printLn $ map title (sort collection)
+  printLn $ clouds
