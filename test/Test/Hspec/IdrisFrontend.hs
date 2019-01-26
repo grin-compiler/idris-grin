@@ -11,7 +11,7 @@ import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 import Control.Monad.Trans
 import Control.Monad.Trans.Error
-import Data.Maybe (fromMaybe, fromJust)
+import Data.Maybe (fromMaybe, fromJust, isNothing)
 import Data.IORef
 import GHC.IO.Handle
 import System.Directory (doesFileExist, removeFile)
@@ -133,18 +133,29 @@ instance Example IdrisCodeGen where
       writeIORef result res
     readIORef result
 
-bisect enterInput timeoutInSecs directory stdInCreate output = do
+bisect enterInput timeoutInSecs directory stdInCreate expectedOutput = do
   files <- fmap (filter isGrinFile) $ lift $ listDirectory directory
   let fileMap = createFileMap files
   let range = findRange fileMap
-  let loop lout !mn !mx | mn >= mx     = throwError $ Failure Nothing $ Reason "Range search exhausted: No clue where the error happens."
-                        | mn + 1 == mx = throwError $ Failure Nothing $ ExpectedButGot Nothing output lout
+  let loop lout !mn !mx
+        | mn >= mx     = throwError $ Failure Nothing $ Reason "Range search exhausted: No clue where the error happens."
+        | mn + 1 == mx = do
+            mnout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup mn fileMap)
+            mxout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup mx fileMap)
+            when (Just expectedOutput /= mnout) $
+              throwError $ Failure Nothing $ Reason $ show $ Map.lookup mn fileMap
+            when (Just expectedOutput /= mxout) $
+              throwError $ Failure Nothing $ Reason $ show $ Map.lookup mx fileMap
+            when (Just expectedOutput == mxout && Just expectedOutput == mnout) $
+              throwError $ Failure Nothing $ Reason "The problematic step did not produce a binary grin. Thus error was in the last step."
+            when (isNothing mnout && isNothing mxout) $
+              throwError $ Failure Nothing $ Reason $ "Something went wrong. After pinpointing the problem, both ends have failed."
       loop lout !mn !mx = do
         let md = ((mx - mn) `div` 2) + mn
         mout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup md fileMap)
         maybe
-          (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, Shrinking has stopped.") output lout)
-          (\out -> uncurry (loop out) $ if (out == output) then (md, mx) else (mn, md))
+          (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, Shrinking has stopped.") expectedOutput lout)
+          (\out -> uncurry (loop out) $ if (out == expectedOutput) then (md, mx) else (mn, md))
           mout
 
   uncurry (loop "") range
@@ -160,7 +171,7 @@ bisect enterInput timeoutInSecs directory stdInCreate output = do
         ExitFailure (-15) -> pure $ Just "Timeout!" -- TODO: Improve
         _ -> do lift $ hClose out
                 err <- lift $ hGetContents err
-                (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") output err)
+                (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") expectedOutput err)
                 pure Nothing
 
     noOfDigits = 3
