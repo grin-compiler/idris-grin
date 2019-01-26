@@ -286,9 +286,7 @@ primFn f ps = case f of
   LTrunc intTy1 intTy2 -> undefined
 -}
   LStrConcat -> Grin.SApp "idris_str_concat" ps
-{-
-  LStrLt -> undefined
--}
+  LStrLt -> Grin.SApp "idris_str_lt" ps
   LStrEq -> Grin.SApp "idris_str_eq" ps
   LStrLen -> Grin.SApp "idris_str_len" ps
   LIntFloat intTy -> Grin.SApp "idris_int_float" ps

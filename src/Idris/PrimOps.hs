@@ -118,6 +118,14 @@ idrisPrimOps = withPrimPrelude [prog|
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
+  idris_str_lt idris_str_lt1 idris_str_lt2 =
+    (CGrString idris_str_lt1_0) <- fetch idris_str_lt1
+    (CGrString idris_str_lt2_0) <- fetch idris_str_lt2
+    idris_str_lt3 <- _prim_string_lt idris_str_lt1_0 idris_str_lt2_0
+    case idris_str_lt3 of
+      #False -> pure (CGrInt 0)
+      #True  -> pure (CGrInt 1)
+
   idris_str_len idris_str_len1 =
     (CGrString idris_str_len2) <- fetch idris_str_len1
     idris_str_len3 <- _prim_string_len idris_str_len2
