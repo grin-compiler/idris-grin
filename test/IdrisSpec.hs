@@ -68,3 +68,6 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
     it "TDD 07 - 02 Expr" $ timed $ idris
       mode 60
       "test/tdd/chapter07/02_Expr.idr"
+    it "TDD 08 - 01 ExactLength" $ timed $ idris
+      mode 60
+      "test/tdd/chapter08/01_ExactLength.idr"
