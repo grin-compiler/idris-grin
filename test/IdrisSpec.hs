@@ -48,9 +48,7 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
         , "1", "2", ""
         , "1", "2", ""
         ]
-    it "TDD 06 - 01 Type Level Functions" $ timed $ idris
-      mode 60
-      "test/tdd/chapter06/01TypeLevelFuns.idr"
+    it "TDD 06 - 01 Type Level Functions" $ timed $ idris mode 60 "test/tdd/chapter06/01TypeLevelFuns.idr"
     it "TDD 06 - 02 DataStore" $ timed $ idrisWithStdin
       mode 60
       "test/tdd/chapter05/02_DataStore.idr"
@@ -62,12 +60,8 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
         , "get 1"
         , "quit"
         ]
-    it "TDD 07 - 01 Interfaces" $ timed $ idris
-      mode 60
-      "test/tdd/chapter07/01_Interfaces.idr"
-    it "TDD 07 - 02 Expr" $ timed $ idris
-      mode 60
-      "test/tdd/chapter07/02_Expr.idr"
-    it "TDD 08 - 01 ExactLength" $ timed $ idris
-      mode 60
-      "test/tdd/chapter08/01_ExactLength.idr"
+    it "TDD 07 - 01 Interfaces" $ timed $ idris mode 60 "test/tdd/chapter07/01_Interfaces.idr"
+    it "TDD 07 - 02 Expr" $ timed $ idris mode 60 "test/tdd/chapter07/02_Expr.idr"
+    it "TDD 08 - 01 ExactLength" $ timed $ idris mode 60 "test/tdd/chapter08/01_ExactLength.idr"
+    it "TDD 08 - 02 Reverse" $ timed $ idris mode 60 "test/tdd/chapter08/02_Reverse.idr"
+    it "TDD 09 - 01 RemoveElem" $ timed $ idris mode 60 "test/tdd/chapter09/01_RemoveElem.idr"
