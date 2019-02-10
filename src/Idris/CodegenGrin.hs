@@ -299,7 +299,8 @@ primFn f ps = case f of
   LFloatStr -> Grin.SApp "idris_float_str" ps
 {-  LStrFloat -> undefined -}
   LChInt intTy -> Grin.SApp "idris_ch_int" ps
-{-  LIntCh intTy -> undefined
+  LIntCh intTy -> Grin.SApp "idris_int_ch" ps
+{-
   LBitCast arithTy1 arithTy2 -> undefined -- Only for values of equal width
   LFExp -> undefined
   LFLog -> undefined
@@ -388,6 +389,7 @@ preparation :: [PipelineStep]
 preparation =
   [ SaveGrin (Rel "FromIdris")
   , T SimpleDeadFunctionElimination
+  , T ProducerNameIntroduction
 --  , PrintGrin ondullblack
 --  , HPT PrintHPTResult
 --  , PrintTypeEnv

@@ -191,6 +191,10 @@ idrisPrimOps = withPrimPrelude [prog|
     (CGrInt idris_ch_int2) <- fetch idris_ch_int1
     pure (CGrInt idris_ch_int2)
 
+  idris_int_ch idris_int_ch1 =
+    (CGrInt idris_int_ch2) <- fetch idris_int_ch1
+    pure (CGrInt idris_int_ch2)
+
   idris_usleep idris_usleep1 =
     (CGrInt idris_usleep1_0) <- fetch idris_usleep1
     _prim_usleep idris_usleep1_0

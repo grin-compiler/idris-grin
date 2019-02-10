@@ -65,3 +65,13 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
     it "TDD 08 - 01 ExactLength" $ timed $ idris mode 60 "test/tdd/chapter08/01_ExactLength.idr"
     it "TDD 08 - 02 Reverse" $ timed $ idris mode 60 "test/tdd/chapter08/02_Reverse.idr"
     it "TDD 09 - 01 RemoveElem" $ timed $ idris mode 60 "test/tdd/chapter09/01_RemoveElem.idr"
+    it "TDD 09 - 02 Game" $ timed $ idrisWithStdin
+      mode 60
+      "test/tdd/chapter09/02_Game.idr"
+      $ unlines
+        [ "Invalid"
+        , "t"
+        , "d"
+        , "s"
+        , "e"
+        ]
