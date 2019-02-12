@@ -85,7 +85,13 @@ instance Example IdrisCodeGen where
       let runGrin = (shell "stack exec grin -- eval test.grin")
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
 
-      res <- fmap (Result "" . either id (const Success)) $ runExceptT $ do
+      logs <- newIORef []
+      let readFinalLogs = fmap (unlines . reverse) $ readIORef logs
+      let attachLogs r = do
+            logLines <- readFinalLogs
+            pure $ (Result logLines . either id (const Success)) r
+
+      res <- (attachLogs =<<) $ runExceptT $ do
         lift $ progressCallback (3, steps)
         (_in, Just out, _err, idrisPh) <- lift $ createProcess_ "Idris" idris
         lift $ progressCallback (4, steps)
@@ -127,30 +133,46 @@ instance Example IdrisCodeGen where
         when (grinOut /= testOut) $
           case optimised of
             NonOptimised -> throwE $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
-            Optimised    -> bisect enterInput timeoutInSecs ".idris" stdInCreate testOut
+            Optimised    -> bisect logs enterInput timeoutInSecs ".idris" stdInCreate testOut
       writeIORef result res
     readIORef result
 
-bisect enterInput timeoutInSecs directory stdInCreate expectedOutput = do
+bisect logs enterInput timeoutInSecs directory stdInCreate expectedOutput = do
   files <- fmap (filter isGrinFile) $ lift $ listDirectory directory
   let fileMap = createFileMap files
   let range = findRange fileMap
+
+  let run idx = do
+        let cmd = printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup idx fileMap)
+        lift $ modifyIORef logs ((fromJust $ Map.lookup idx fileMap):)
+        let runGrin = (shell cmd) { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
+        (mIn, Just out, Just err, cmdPh) <- lift $ createProcess_ cmd runGrin
+        enterInput mIn
+        cmdExitCode <- lift $ timeout (timeoutInSecs * 1000) cmdPh
+        case cmdExitCode of
+          ExitSuccess       -> fmap Just $ lift $ hGetContents out
+          ExitFailure (-15) -> pure $ Just "Timeout!" -- TODO: Improve
+          _ -> do lift $ hClose out
+                  err <- lift $ hGetContents err
+                  (throwE $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") expectedOutput err)
+                  pure Nothing
+
   let loop lout !mn !mx
         | mn >= mx     = throwE $ Failure Nothing $ Reason "Range search exhausted: No clue where the error happens."
         | mn + 1 == mx = do
-            mnout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup mn fileMap)
-            mxout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup mx fileMap)
-            when (Just expectedOutput /= mnout) $
-              throwE $ Failure Nothing $ Reason $ show $ Map.lookup mn fileMap
-            when (Just expectedOutput /= mxout) $
-              throwE $ Failure Nothing $ Reason $ show $ Map.lookup mx fileMap
+            mnout <- run mn
+            when (mnout /= Just expectedOutput) $
+              throwE $ Failure Nothing $ Reason $ fromMaybe "Empty output" mnout
+            mxout <- run mx
+            when (mxout /= Just expectedOutput) $
+              throwE $ Failure Nothing $ Reason $ fromMaybe "Empty output" mxout
             when (Just expectedOutput == mxout && Just expectedOutput == mnout) $
               throwE $ Failure Nothing $ Reason "The problematic step did not produce a binary grin. Thus error was in the last step."
             when (isNothing mnout && isNothing mxout) $
               throwE $ Failure Nothing $ Reason $ "Something went wrong. After pinpointing the problem, both ends have failed."
       loop lout !mn !mx = do
         let md = ((mx - mn) `div` 2) + mn
-        mout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup md fileMap)
+        mout <- run md
         maybe
           (throwE $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, Shrinking has stopped.") expectedOutput lout)
           (\out -> uncurry (loop out) $ if (out == expectedOutput) then (md, mx) else (mn, md))
@@ -158,19 +180,6 @@ bisect enterInput timeoutInSecs directory stdInCreate expectedOutput = do
 
   uncurry (loop "") range
   where
-    run (cmd :: String) = do
-      lift $ print cmd
-      let runGrin = (shell cmd) { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
-      (mIn, Just out, Just err, cmdPh) <- lift $ createProcess_ cmd runGrin
-      enterInput mIn
-      cmdExitCode <- lift $ timeout (timeoutInSecs * 1000) cmdPh
-      case cmdExitCode of
-        ExitSuccess       -> fmap Just $ lift $ hGetContents out
-        ExitFailure (-15) -> pure $ Just "Timeout!" -- TODO: Improve
-        _ -> do lift $ hClose out
-                err <- lift $ hGetContents err
-                (throwE $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") expectedOutput err)
-                pure Nothing
 
     noOfDigits = 3
     isGrinFile name = (all isDigit (take noOfDigits name)) && ".binary" `isSuffixOf` name
@@ -205,7 +214,7 @@ instance Example a => Example (Timed a) where
     result <- safeEvaluateExample a params actionWith progressCallback
     end    <- getCurrentTime
     let diff = (showMS $ toRational $ diffUTCTime end start)
-    pure $ result { resultInfo = resultInfo result ++ " " ++ diff }
+    pure $ result { resultInfo = resultInfo result ++ diff }
     where
       showMS :: Rational -> String
       showMS t = printf "%.6f ms" (realToFrac $ 1E3 * t :: Double)
