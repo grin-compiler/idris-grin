@@ -10,7 +10,8 @@ import Control.Arrow
 import Control.Concurrent (threadDelay)
 import Control.Monad (when)
 import Control.Monad.Trans
-import Control.Monad.Trans.Error
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Strict
 import Data.Maybe (fromMaybe, fromJust, isNothing)
 import Data.IORef
 import GHC.IO.Handle
@@ -29,9 +30,6 @@ import Data.Time.Clock
 
 
 
-instance Error ResultStatus where
-  noMsg  = Failure Nothing NoReason
-  strMsg = Failure Nothing . Reason
 
 data OptMode
   = Optimised
@@ -87,7 +85,7 @@ instance Example IdrisCodeGen where
       let runGrin = (shell "stack exec grin -- eval test.grin")
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
 
-      res <- fmap (Result "" . either id (const Success)) $ runErrorT $ do
+      res <- fmap (Result "" . either id (const Success)) $ runExceptT $ do
         lift $ progressCallback (3, steps)
         (_in, Just out, _err, idrisPh) <- lift $ createProcess_ "Idris" idris
         lift $ progressCallback (4, steps)
@@ -95,7 +93,7 @@ instance Example IdrisCodeGen where
         lift $ progressCallback (5, steps)
         when (idrisExitCode /= ExitSuccess) $ do
           lift $ hClose out
-          throwError $ Failure Nothing $ Reason $ "Idris process exited with: " ++ show idrisExitCode
+          throwE $ Failure Nothing $ Reason $ "Idris process exited with: " ++ show idrisExitCode
         lift (hGetContents out >>= putStrLn)
 
         lift $ progressCallback (6, steps)
@@ -107,7 +105,7 @@ instance Example IdrisCodeGen where
         lift $ doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
         when (runTestExitCode /= ExitSuccess) $ do
           lift $ hClose out
-          throwError $ Failure Nothing $ Reason $ "Test process exited with: " ++ show runTestExitCode
+          throwE $ Failure Nothing $ Reason $ "Test process exited with: " ++ show runTestExitCode
         testOut <- lift $ hGetContents out
 
         lift $ progressCallback (9, steps)
@@ -122,13 +120,13 @@ instance Example IdrisCodeGen where
           ExitFailure (-15) -> pure () -- Timeout, killed, etc
           _ -> do
             lift $ hClose out
-            throwError $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
+            throwE $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
         grinOut <- lift $ hGetContents out
 
         lift $ progressCallback (12, steps)
         when (grinOut /= testOut) $
           case optimised of
-            NonOptimised -> throwError $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
+            NonOptimised -> throwE $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
             Optimised    -> bisect enterInput timeoutInSecs ".idris" stdInCreate testOut
       writeIORef result res
     readIORef result
@@ -138,23 +136,23 @@ bisect enterInput timeoutInSecs directory stdInCreate expectedOutput = do
   let fileMap = createFileMap files
   let range = findRange fileMap
   let loop lout !mn !mx
-        | mn >= mx     = throwError $ Failure Nothing $ Reason "Range search exhausted: No clue where the error happens."
+        | mn >= mx     = throwE $ Failure Nothing $ Reason "Range search exhausted: No clue where the error happens."
         | mn + 1 == mx = do
             mnout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup mn fileMap)
             mxout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup mx fileMap)
             when (Just expectedOutput /= mnout) $
-              throwError $ Failure Nothing $ Reason $ show $ Map.lookup mn fileMap
+              throwE $ Failure Nothing $ Reason $ show $ Map.lookup mn fileMap
             when (Just expectedOutput /= mxout) $
-              throwError $ Failure Nothing $ Reason $ show $ Map.lookup mx fileMap
+              throwE $ Failure Nothing $ Reason $ show $ Map.lookup mx fileMap
             when (Just expectedOutput == mxout && Just expectedOutput == mnout) $
-              throwError $ Failure Nothing $ Reason "The problematic step did not produce a binary grin. Thus error was in the last step."
+              throwE $ Failure Nothing $ Reason "The problematic step did not produce a binary grin. Thus error was in the last step."
             when (isNothing mnout && isNothing mxout) $
-              throwError $ Failure Nothing $ Reason $ "Something went wrong. After pinpointing the problem, both ends have failed."
+              throwE $ Failure Nothing $ Reason $ "Something went wrong. After pinpointing the problem, both ends have failed."
       loop lout !mn !mx = do
         let md = ((mx - mn) `div` 2) + mn
         mout <- run $ printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup md fileMap)
         maybe
-          (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, Shrinking has stopped.") expectedOutput lout)
+          (throwE $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, Shrinking has stopped.") expectedOutput lout)
           (\out -> uncurry (loop out) $ if (out == expectedOutput) then (md, mx) else (mn, md))
           mout
 
@@ -171,7 +169,7 @@ bisect enterInput timeoutInSecs directory stdInCreate expectedOutput = do
         ExitFailure (-15) -> pure $ Just "Timeout!" -- TODO: Improve
         _ -> do lift $ hClose out
                 err <- lift $ hGetContents err
-                (throwError $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") expectedOutput err)
+                (throwE $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") expectedOutput err)
                 pure Nothing
 
     noOfDigits = 3
