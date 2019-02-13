@@ -35,6 +35,3 @@ install:
 
 script:
   - stack install
-
-after_script:
-  - travis_wait 120 stack exec idris-codegen-test
