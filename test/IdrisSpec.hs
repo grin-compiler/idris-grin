@@ -75,3 +75,4 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
         , "s"
         , "e"
         ]
+    it "TDD 10 - 02 View" $ timed $ idris mode 60 "test/tdd/chapter10/01_View.idr"
