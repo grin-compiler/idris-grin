@@ -390,6 +390,7 @@ preparation =
   [ SaveGrin (Rel "FromIdris")
   , T SimpleDeadFunctionElimination
   , T ProducerNameIntroduction
+  , T BindNormalisation
 --  , PrintGrin ondullblack
 --  , HPT PrintHPTResult
 --  , PrintTypeEnv
