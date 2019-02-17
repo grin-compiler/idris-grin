@@ -77,3 +77,4 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] 
         ]
     it "TDD 10 - 01 View" $ timed $ idris mode 60 "test/tdd/chapter10/01_View.idr"
     it "TDD 10 - 01 Exercises" $ timed $ idris mode 60 "test/tdd/chapter10/01_Exercises.idr"
+    it "TDD 10 - 02 Recursive Views" $ timed $ idris mode 60 "test/tdd/chapter10/02_RecursiveViews.idr"
