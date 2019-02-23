@@ -16,7 +16,7 @@ import Data.Maybe (fromMaybe, fromJust, isNothing)
 import Data.IORef
 import GHC.IO.Handle
 import System.Directory (doesFileExist, removeFile)
-import System.FilePath ((</>))
+import System.FilePath ((</>), takeDirectory)
 import System.Exit
 import System.Process
 import Test.Hspec.Core.Spec
@@ -42,14 +42,18 @@ data IdrisCodeGen
     , input  :: Maybe String
     , optimised :: OptMode
     , timeoutInSecs :: Int
+    , withInclude :: Bool
     }
 
 
 idris :: OptMode -> Int -> String -> IdrisCodeGen
-idris o t fp = IdrisCodeGen fp Nothing o t
+idris o t fp = IdrisCodeGen fp Nothing o t False
+
+idrisWithIncludeDir :: OptMode -> Int -> String -> IdrisCodeGen
+idrisWithIncludeDir o t fp = IdrisCodeGen fp Nothing o t True
 
 idrisWithStdin :: OptMode -> Int -> String -> String -> IdrisCodeGen
-idrisWithStdin o t fp inp = IdrisCodeGen fp (Just inp) o t
+idrisWithStdin o t fp inp = IdrisCodeGen fp (Just inp) o t False
 
 
 instance Example IdrisCodeGen where
@@ -73,14 +77,15 @@ instance Example IdrisCodeGen where
                               -- hPutChar h '\x04'
                               hFlushAll h
                               hClose h
-      let idris = (shell (printf "stack exec idris -- %s -o test.bin" source))
+      let includeDir = if withInclude then "-i " ++ takeDirectory source else ""
+      let idris = (shell (printf "stack exec idris -- %s %s -o test.bin" source includeDir))
                   { std_in = NoStream, std_out = CreatePipe, std_err = NoStream } -- TODO: Log activity
       let runTest = (shell "./test.bin")
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
       let idrisGrinCmd = case optimised of
-            Optimised     -> "stack exec idris -- %s --codegen grin -o test.grin --cg-opt --quiet --cg-opt --binary-intermed"
-            NonOptimised  -> "stack exec idris -- %s --codegen grin -o test.grin --cg-opt --O0 --cg-opt --quiet"
-      let idrisGrin = (shell (printf idrisGrinCmd source))
+            Optimised     -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --quiet --cg-opt --binary-intermed"
+            NonOptimised  -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --O0 --cg-opt --quiet"
+      let idrisGrin = (shell (printf idrisGrinCmd source includeDir))
                       { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
       let runGrin = (shell "stack exec grin -- eval test.grin")
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
