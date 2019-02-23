@@ -43,8 +43,8 @@ TODO:
 -}
 
 {-
-llc-5.0 -O3 -relocation-model=pic -filetype=obj ${OPT}.ll
-gcc -O3 test.c ${OPT}.o -s -o opt
+llc-7.0 -O3 -relocation-model=pic -filetype=obj ${OPT}.ll
+gcc -O3 prim_ops.c test.c ${OPT}.o -s -o opt
 ./opt
 -}
 
@@ -436,6 +436,7 @@ idrisOptimizations o =
 postProcessing :: String -> [PipelineStep]
 postProcessing outputFile =
   [ SaveGrin (Abs outputFile)
+--  , SaveLLVM True "high-level-opt-code"
 --  , HPT CompileHPT
 --  , HPT RunHPTPure
 --  , PrintTypeEnv
