@@ -79,60 +79,67 @@ instance Example IdrisCodeGen where
                               hClose h
       let includeDir = if withInclude then "-i " ++ takeDirectory source else ""
       let idris = (shell (printf "stack exec idris -- %s %s -o test.bin" source includeDir))
-                  { std_in = NoStream, std_out = CreatePipe, std_err = NoStream } -- TODO: Log activity
+                  { std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe } -- TODO: Log activity
       let runTest = (shell "./test.bin")
-                    { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
+                    { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
       let idrisGrinCmd = case optimised of
             Optimised     -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --quiet --cg-opt --binary-intermed"
             NonOptimised  -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --O0 --cg-opt --quiet"
       let idrisGrin = (shell (printf idrisGrinCmd source includeDir))
-                      { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
+                      { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
       let runGrin = (shell "stack exec grin -- eval test.grin")
-                    { std_in = stdInCreate, std_out = CreatePipe, std_err = NoStream }
+                    { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
 
       logs <- newIORef []
-      let readFinalLogs = fmap (unlines . reverse) $ readIORef logs
+      let addLogLines lines = modifyIORef logs (++lines)
+      let readFinalLogs = fmap unlines $ readIORef logs
       let attachLogs r = do
             logLines <- readFinalLogs
-            pure $ (Result logLines . either id (const Success)) r
+            pure $ (either (Result logLines) (const (Result [] Success))) r
 
       res <- (attachLogs =<<) $ runExceptT $ do
         lift $ progressCallback (3, steps)
-        (_in, Just out, _err, idrisPh) <- lift $ createProcess_ "Idris" idris
+        (_in, Just out, Just err, idrisPh) <- lift $ createProcess_ "Idris" idris
         lift $ progressCallback (4, steps)
         idrisExitCode <- lift $ waitForProcess idrisPh
         lift $ progressCallback (5, steps)
+        lift $ addLogLines ["Compile idris"]
+        lift (hGetContents out >>= (addLogLines . lines))
+        lift (hGetContents err >>= (addLogLines . lines))
         when (idrisExitCode /= ExitSuccess) $ do
           lift $ hClose out
           throwE $ Failure Nothing $ Reason $ "Idris process exited with: " ++ show idrisExitCode
-        lift (hGetContents out >>= putStrLn)
-
         lift $ progressCallback (6, steps)
-        (mIn, Just out, _err, runTestPh) <- lift $ createProcess_ "Test" runTest
+        (mIn, Just out, Just err, runTestPh) <- lift $ createProcess_ "Test" runTest
         lift $ progressCallback (7, steps)
         enterInput mIn
         runTestExitCode <- lift $ waitForProcess runTestPh
         lift $ progressCallback (8, steps)
         lift $ doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
+        testOut <- lift $ hGetContents out
+        lift $ addLogLines ["Run idris generated binary"]
+        lift $ addLogLines $ lines testOut
+        lift $ (hGetContents err >>= (addLogLines . lines))
         when (runTestExitCode /= ExitSuccess) $ do
           lift $ hClose out
           throwE $ Failure Nothing $ Reason $ "Test process exited with: " ++ show runTestExitCode
-        testOut <- lift $ hGetContents out
-
         lift $ progressCallback (9, steps)
-        (mIn, Just out, _err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
+        (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
         lift $ progressCallback (10, steps)
         enterInput mIn
         idrisGrinExitCode <- lift $ timeout (timeoutInSecs * 1000) idrisGrinPh
         lift $ progressCallback (11, steps)
         lift $ doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
+        grinOut <- lift $ hGetContents out
+        lift $ addLogLines ["Compile and run grin."]
+        lift $ addLogLines $ lines grinOut
+        lift (hGetContents err >>= (addLogLines . lines))
         case idrisGrinExitCode of
           ExitSuccess       -> pure ()
           ExitFailure (-15) -> pure () -- Timeout, killed, etc
           _ -> do
             lift $ hClose out
             throwE $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
-        grinOut <- lift $ hGetContents out
 
         lift $ progressCallback (12, steps)
         when (grinOut /= testOut) $
@@ -146,20 +153,23 @@ bisect logs enterInput timeoutInSecs directory stdInCreate expectedOutput = do
   files <- fmap (filter isGrinFile) $ lift $ listDirectory directory
   let fileMap = createFileMap files
   let range = findRange fileMap
+  let addLogLines lines = modifyIORef logs (++lines)
 
   let run idx = do
         let cmd = printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup idx fileMap)
-        lift $ modifyIORef logs ((fromJust $ Map.lookup idx fileMap):)
+        lift $ addLogLines ["", "", fromJust $ Map.lookup idx fileMap]
         let runGrin = (shell cmd) { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
         (mIn, Just out, Just err, cmdPh) <- lift $ createProcess_ cmd runGrin
         enterInput mIn
         cmdExitCode <- lift $ timeout (timeoutInSecs * 1000) cmdPh
+        output <- lift $ hGetContents out
+        errors <- lift $ hGetContents err
+        lift $ addLogLines $ lines output
+        lift $ addLogLines $ lines errors
         case cmdExitCode of
-          ExitSuccess       -> fmap Just $ lift $ hGetContents out
+          ExitSuccess       -> pure $ Just output
           ExitFailure (-15) -> pure $ Just "Timeout!" -- TODO: Improve
-          _ -> do lift $ hClose out
-                  err <- lift $ hGetContents err
-                  (throwE $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") expectedOutput err)
+          _ -> do (throwE $ Failure Nothing $ ExpectedButGot (Just "Evaluation error, shrinking has stopped.") expectedOutput errors)
                   pure Nothing
 
   let loop lout !mn !mx
