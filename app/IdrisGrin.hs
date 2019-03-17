@@ -20,7 +20,9 @@ import Text.Read (readMaybe)
 
 options :: [OptDescr (Endo Options)]
 options =
-  [ Option ['o'] ["output"]     (ReqArg (\a -> Endo $ \opts -> opts { output = a }) "FILE") "Grin output FILE (does not work yet)"
+  [ Option ['o'] ["output"]     (ReqArg (\a -> Endo $ \opts -> opts { output = a }) "FILE") "Executable ELF output FILE"
+  , Option ['g'] ["grin"]       (NoArg $ Endo $ \opts -> opts { outputGrin = True }) "Save the GRIN to the FILE"
+  , Option ['e'] ["eval"]       (NoArg $ Endo $ \opts -> opts { evalGrin = True }) "Eval the final optimised GRIN"
   , Option ['q'] ["quiet"]      (NoArg $ Endo $ \opts -> opts { quiet = True }) "Do not log to stdout"
   , Option []    ["O0"]         (NoArg $ Endo $ \opts -> opts { optimise = False }) "No optimisation"
   , Option ['h'] ["help"]       (NoArg $ Endo $ \opts -> opts { help = True }) "Print help"

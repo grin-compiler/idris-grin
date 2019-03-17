@@ -45,6 +45,8 @@ TODO:
 data Options = Options
   { inputs :: [FilePath]
   , output :: FilePath
+  , outputGrin :: Bool
+  , evalGrin :: Bool
   , optimise :: Bool
   , quiet :: Bool
   , help :: Bool
@@ -57,6 +59,8 @@ data Options = Options
 defaultOptions = Options
   { inputs = []
   , output = "a.out"
+  , outputGrin = False
+  , evalGrin = False
   , optimise = True
   , quiet = False
   , help = False
@@ -82,7 +86,7 @@ codegenGrin o@Options{..} CodegenInfo{..} = do
     (program simpleDecls)
     preparation
     (idrisOptimizations o)
-    (postProcessing outputFile)
+    (postProcessing o)
   pure ()
 
 program :: [(Idris.Name, SDecl)] -> Exp
@@ -390,14 +394,8 @@ idrisOptimizations o =
       ]
     else []
 
-postProcessing :: String -> [PipelineStep]
-postProcessing outputFile =
-  [ SaveGrin (Abs outputFile)
-  , SaveLLVM True "high-level-opt-code"
-  , LinkExecutable True "high-level-opt-code"
---  , HPT CompileHPT
---  , HPT RunHPTPure
---  , PrintTypeEnv
-  , PureEval
---  , JITLLVM
+postProcessing :: Options -> [PipelineStep]
+postProcessing opt = concat
+  [ [ (if (outputGrin opt) then SaveGrin else SaveExecutable) $ Abs $ output opt ]
+  , [ PureEval | evalGrin opt ]
   ]
