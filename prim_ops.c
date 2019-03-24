@@ -4,43 +4,101 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+// #include <math.h>
+#include "prim_ops.h"
 
-typedef char* string;
+struct string str1 = { .data = "test", .length = 4 };
 
-// primop effectful
+struct string create_string_len(int64_t l) {
+    struct string r;
+    r.data = (char*)calloc(sizeof(char), l * sizeof(char));
+    r.length = l;
+    return r;
+}
 
-//:: T_Int64  -> T_Unit
+struct string create_string_copy(char* str) {
+    struct string r;
+    int64_t l = strlen(str);
+#ifdef DEBUG
+    printf("create_string_copy %d\n", l);
+#endif
+    r.data = (char*)malloc(l * sizeof(char));
+    strncpy(r.data, str, l);
+    r.length = l;
+    return r;
+}
+
+char* cstring(struct string s){
+    char* r = malloc((s.length + 1) * sizeof(char));
+    size_t i = 1;
+    while(i <= s.length) {
+        r[i-1] = s.data[i-1];
+        i++;
+    }
+    r[i] = 0;
+    return r;
+}
+
+
+/*
+length = 0, empty pointer
+
+*/
+
+//:: T_String -> T_Unit
+void _prim_string_print(struct string p1){
+    int64_t i = 1;
+    while (i <= p1.length) {
+        printf("%c", p1.data[i-1]);
+        i++;
+    }
+}
+
+// :: T_Int64  -> T_Unit
 void _prim_int_print(int64_t p1) {
+#ifdef DEBUG
+    printf("_prim_int_print\n");
+#endif
     printf("%ld", p1);
 }
 
-//:: T_String -> T_Unit
-void _prim_string_print(string p1) {
-    printf("%s", p1);
-}
-
-//   :: T_String
-string _prim_read_string() {
+// :: T_String
+struct string _prim_read_string() {
+#ifdef DEBUG
+    printf("_prim_read_print\n");
+#endif
     char *buffer = NULL;
+    size_t len = 0;
     int read;
-    size_t len;
     read = getline(&buffer, &len, stdin);
-    return buffer;
+    struct string r;
+    r.data = buffer;
+    r.length = read;
+    return r;
 }
 
-//         :: T_Int64 -> T_Unit
+// :: T_Int64 -> T_Unit
 void _prim_usleep(int64_t p1) {
+#ifdef DEBUG
+    printf("_prim_usleep(%ld)\n", p1);
+#endif
     usleep(p1); // p1 microseconds
 }
 
-//          :: T_String -> T_Unit
-void _prim_error(string p1) {
-    printf("%s\n", p1);
+// :: T_struct String -> T_Unit
+void _prim_error(struct string p1) {
+#ifdef DEBUG
+    printf("_prim_error(%s)\n", p1);
+#endif
+    _prim_string_print(p1);
     exit(-1);
 }
 
-//   :: T_Int64 -> T_Int64
+// :: T_Int64 -> T_Int64
 int64_t _prim_ffi_file_eof(int64_t p1) {
+#ifdef DEBUG
+    printf("_prim_ffi_file_eof(%ld)\n", p1);
+#endif
     // TODO: Figure out how to map idris file and C files.
     FILE *f;
     switch(p1) {
@@ -50,126 +108,141 @@ int64_t _prim_ffi_file_eof(int64_t p1) {
     return feof(f);
 }
 
-// primop pure
 
-// String
-
-//  :: T_String -> T_String -> T_String
-string _prim_string_concat(string p1, string p2) {
-    int l1 = strlen(p1);
-    int l2 = strlen(p2);
-    char* p3 = malloc((l1 + l2 + 1) * sizeof(char));
-    strcpy(p3, p1);
-    strcpy(p3 + l1, p2);
-    p3[l1 + l2 + 1] = 0;
-    return p3;
+// :: T_struct String -> T_struct String -> T_String
+struct string _prim_string_concat(struct string p1, struct string p2) {
+    struct string r = create_string_len(p1.length + p2.length);
+    size_t i = 1;
+    while(i <= p1.length) {
+        r.data[i-1] = p1.data[i-1];
+        i++;
+    }
+    size_t j = 1;
+    while(j <= p2.length) {
+        r.data[i-1] = p2.data[j-1];
+        i++;
+        j++;
+    }
+    return r;
 }
 
 // :: T_String -> T_String
-string _prim_string_reverse(string p1) {
-    int l = strlen(p1) - 1;
-    int i = 0;
-    char* ret = malloc((i + 1) * sizeof(char));
-    ret[l + 1] = 0; //Close the string
-    while(i <= l) {
-        ret[i] = p1[l - i];
+struct string _prim_string_reverse(struct string s){
+    struct string r = create_string_len(s.length);
+    size_t i = 1;
+    while(i <= s.length) {
+        r.data[i-1] = s.data[s.length - i];
         i++;
     }
-    return ret;
+    return r;
 }
 
-//      :: T_String -> T_String -> T_Bool
-int64_t _prim_string_lt(string p1, string p2) {
-    int i = 0;
-    // Try to find a character which is greater in the first string.
-    while(p1[i] && p2[i]) {
-        if(p1[i] >= p2[i]) {
-            return 0;
-        }
-        i++;
-    }
-    // Reached the end.
-    if(p1[i] == p2[i]) {
+int64_t _prim_string_eq(struct string p1, struct string p2){
+    if(p1.length != p2.length) {
         return 0;
     }
-    // First one was shorter, and passed the test above, thus it is less than the second one.
-    if(p1[i] == 0) {
-        return 1;
-    }
-    // The second one was shorter, thus the first one is bigger.
-    return 0;
-}
-
-//      :: T_String -> T_String -> T_Bool
-int64_t _prim_string_eq(string p1, string p2) {
-    int i = 0;
-    // Try to find a different element.
-    while(p1[i] && p2[i]) {
-        if(p1[i] != p2[i]) {
+    size_t i = 1;
+    while(i <= p1.length) {
+        if(p1.data[i-1] != p2.data[i-1]) {
             return 0;
         }
         i++;
     }
-    // If both reached end, both are zero, than they are eq, otherwise not.
-    return (p1[i] == p2[i]);
+    return 1;
 }
 
-//     :: T_String -> T_Int64 -- TODO: Change to Char
-int64_t _prim_string_head(string p1) {
-    return (int64_t)p1[0];
+// :: T_struct String -> T_Int64 -- TODO: Change to Char
+int64_t _prim_string_head(struct string p1) {
+    if (p1.length == 0) {
+        printf("_primt_string_head\n");
+        exit(-1);
+    }
+    return (int64_t)p1.data[0];
+}
+
+// :: T_struct String -> T_Int64
+int64_t _prim_string_len(struct string p1) {
+    return p1.length;
 }
 
 //     :: T_String -> T_String
-string _prim_string_tail(string p1) {
-    return (p1 + 1);
+struct string _prim_string_tail(struct string p1){
+    if(p1.length == 0) {
+        printf("_prim_string_tail\n");
+        exit(-1);
+    }
+    struct string r = create_string_len(p1.length - 1);
+    size_t i = 1;
+    while(i <= r.length) {
+        r.data[i-1] = p1.data[i];
+        i++;
+    }
+    return r;
 }
 
 //     :: T_Int64  -> T_String -> T_String
-string _prim_string_cons(int64_t p1, string p2) {
-    int l = strlen(p2);
-    char* ret = malloc((l + 2) * sizeof(char));
-    int i = 0;
-    ret[i] = (char)p1;
-    while(p2[i]) {
-        ret[i + 1] = p2[i];
+struct string _prim_string_cons(int64_t p1, struct string p2){
+    struct string r = create_string_len(p2.length + 1);
+    r.data[0] = (char)p1;
+    size_t i = 1;
+    while(i <= p2.length) {
+        r.data[i] = p2.data[i-1];
         i++;
     }
-    ret[i + 1] = 0;
-    return ret;
+    return r;
 }
 
-//      :: T_String -> T_Int64
-int64_t _prim_string_len(string p1) {
-    return strlen(p1);
+//      :: T_String -> T_String -> T_Bool
+int64_t _prim_string_lt(struct string p1, struct string p2) {
+    if(p1.length == 0 && p2.length == 0) {
+        return 0;
+    }
+    size_t i = 0;
+    while (i < p1.length && i < p2.length) {
+        if(p1.data[i] != p2.data[i]) {
+            break;
+        }
+        i++;
+    }
+    return p1.data[i] < p2.data[i];
 }
 
-// Conversion
-
-//      :: T_Int64 -> T_String
-string _prim_int_str(int64_t p1) {
-    char* p2 = malloc(32 * sizeof(char));
-    sprintf(p2, "%ld", p1);
-    return p2;
+struct string _prim_int_str(int64_t p1){
+    char *tmp = (char*)malloc(256 * sizeof(char));
+    sprintf(tmp, "%ld", p1);
+    struct string r = create_string_copy(tmp);
+    free(tmp);
+    return r;
 }
 
-// :: T_String -> T_Int64
-int64_t _prim_str_int(string p1) {
-    return (int64_t)atoi(p1);
+int64_t _prim_str_int(struct string p1) {
+    char *tmp = cstring(p1);
+    int64_t r = strtoll(tmp, NULL, 10);
+    free(tmp);
+    return r;
 }
 
-//     :: T_Int64 -> T_Float
+// :: T_Int64 -> T_Float
 float _prim_int_float(int64_t p1) {
     return (float)p1;
 }
 
-//  :: T_Float -> T_String
-string _prim_float_string(float p1) {
-    char* ret = malloc(32 * sizeof(char));
-    sprintf(ret, "%f", p1);
-    return ret;
+// :: T_Float -> T_String
+struct string _prim_float_string(float p1) {
+    char *tmp = (char*)malloc(256 * sizeof(char));
+    sprintf(tmp, "%f", p1);
+    struct string r = create_string_copy(tmp);
+    free(tmp);
+    return r;
 }
 
-//     :: T_Char  -> T_Int64
+// :: T_Char  -> T_Int64
 int64_t _prim_char_int(char p1) {
+    printf("_prim_char_int(%c)\n", p1);
     return (int64_t)p1;
+}
+
+int main() {
+    _prim_string_print(str1);
+    return 0;
 }
