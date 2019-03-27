@@ -8,7 +8,7 @@ packages:
 #  - '../grin/grin'
   - location:
       git: https://github.com/grin-tech/grin
-      commit: 5a27db69a857f69cb361b86b5764fa396b9c0011
+      commit: 8ef64ebe9572cb3f3196ecb49a09b556da622165
     subdirs:
       - grin
     extra-dep: true

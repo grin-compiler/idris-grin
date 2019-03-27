@@ -54,6 +54,7 @@ data Options = Options
   , outputDir :: String
   , deadCodeElim :: Bool -- Interprocedural dead code elimination
   , saveInBinary :: Bool
+  , debugSymbols :: Bool
   }
 
 defaultOptions = Options
@@ -68,6 +69,7 @@ defaultOptions = Options
   , outputDir = ".idris"
   , deadCodeElim = False
   , saveInBinary = False
+  , debugSymbols = True
   }
 
 codegenGrin :: Options -> CodegenInfo -> IO ()
@@ -396,6 +398,6 @@ idrisOptimizations o =
 
 postProcessing :: Options -> [PipelineStep]
 postProcessing opt = concat
-  [ [ (if (outputGrin opt) then SaveGrin else SaveExecutable) $ Abs $ output opt ]
+  [ [ (if (outputGrin opt) then SaveGrin else (SaveExecutable (debugSymbols opt))) $ Abs $ output opt ]
   , [ PureEval | evalGrin opt ]
   ]

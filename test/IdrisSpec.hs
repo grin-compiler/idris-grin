@@ -9,7 +9,7 @@ We keep the failing test cases for reference and regression detecting.
 -}
 
 spec :: Spec
-spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimised, Optimised] $ \mode ->
+spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimisedEval, OptimisedEval, Compiled] $ \mode ->
   describe (show mode) $ do
     it "TDD 01 - 01 Hello World" $ timed $ idris mode 60 "test/tdd/chapter01/01_HelloWorld.idr"
     it "TDD 01 - 02 CalcType" $ timed $ idris mode 60 "test/tdd/chapter01/02_CalcType.idr"

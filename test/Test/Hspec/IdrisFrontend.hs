@@ -31,29 +31,30 @@ import Data.Time.Clock
 
 
 
-data OptMode
-  = Optimised
-  | NonOptimised
+data CompileMode
+  = OptimisedEval
+  | NonOptimisedEval
+  | Compiled
   deriving Show
 
 data IdrisCodeGen
   = IdrisCodeGen
     { source :: String
     , input  :: Maybe String
-    , optimised :: OptMode
+    , compiled :: CompileMode
     , timeoutInSecs :: Int
     , withInclude :: Bool
     }
 
 
-idris :: OptMode -> Int -> String -> IdrisCodeGen
-idris o t fp = IdrisCodeGen fp Nothing o t False
+idris :: CompileMode -> Int -> String -> IdrisCodeGen
+idris c t fp = IdrisCodeGen fp Nothing c t False
 
-idrisWithIncludeDir :: OptMode -> Int -> String -> IdrisCodeGen
-idrisWithIncludeDir o t fp = IdrisCodeGen fp Nothing o t True
+idrisWithIncludeDir :: CompileMode -> Int -> String -> IdrisCodeGen
+idrisWithIncludeDir c t fp = IdrisCodeGen fp Nothing c t True
 
-idrisWithStdin :: OptMode -> Int -> String -> String -> IdrisCodeGen
-idrisWithStdin o t fp inp = IdrisCodeGen fp (Just inp) o t False
+idrisWithStdin :: CompileMode -> Int -> String -> String -> IdrisCodeGen
+idrisWithStdin c t fp inp = IdrisCodeGen fp (Just inp) c t False
 
 
 instance Example IdrisCodeGen where
@@ -65,8 +66,8 @@ instance Example IdrisCodeGen where
       let steps = 12
       progressCallback (0, steps)
       doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
-      progressCallback (1, steps)
       doesFileExist "test.grin" >>= flip when (removeFile "test.grin")
+      doesFileExist "test.grin.bin" >>= flip when (removeFile "test.grin.bin")
       progressCallback (2, steps)
       let stdInCreate = maybe NoStream (const CreatePipe) input
       let enterInput mh = fromMaybe (pure ()) $ do -- Maybe
@@ -82,13 +83,14 @@ instance Example IdrisCodeGen where
                   { std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe } -- TODO: Log activity
       let runTest = (shell "./test.bin")
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
-      let idrisGrinCmd = case optimised of
-            Optimised     -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed --cg-opt --eval"
-            NonOptimised  -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --grin --cg-opt --O0 --cg-opt --quiet --cg-opt --eval"
+      let runGrinTest = (shell "./test.grin.bin")
+                        { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
+      let idrisGrinCmd = case compiled of
+            OptimisedEval    -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed --cg-opt --eval"
+            NonOptimisedEval -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --grin --cg-opt --O0 --cg-opt --quiet --cg-opt --eval"
+            Compiled         -> "stack exec idris -- %s %s --codegen grin -o test.grin.bin --cg-opt --quiet"
       let idrisGrin = (shell (printf idrisGrinCmd source includeDir))
                       { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
-      let runGrin = (shell "stack exec grin -- eval test.grin")
-                    { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
 
       logs <- newIORef []
       let addLogLines lines = modifyIORef logs (++lines)
@@ -123,29 +125,62 @@ instance Example IdrisCodeGen where
         when (runTestExitCode /= ExitSuccess) $ do
           lift $ hClose out
           throwE $ Failure Nothing $ Reason $ "Test process exited with: " ++ show runTestExitCode
-        lift $ progressCallback (9, steps)
-        (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
-        lift $ progressCallback (10, steps)
-        enterInput mIn
-        idrisGrinExitCode <- lift $ timeout (timeoutInSecs * 1000) idrisGrinPh
-        lift $ progressCallback (11, steps)
-        lift $ doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
-        grinOut <- lift $ hGetContents out
-        lift $ addLogLines ["Compile and run grin."]
-        lift $ addLogLines $ lines grinOut
-        lift (hGetContents err >>= (addLogLines . lines))
-        case idrisGrinExitCode of
-          ExitSuccess       -> pure ()
-          ExitFailure (-15) -> pure () -- Timeout, killed, etc
+
+        grinOut <- case compiled of
+          Compiled -> do
+            lift $ progressCallback (9, steps)
+            (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
+            compOut <- lift $ hGetContents out
+            compErr <- lift $ hGetContents err
+            lift $ addLogLines $ lines compOut
+            lift $ addLogLines $ lines compErr
+
+            lift $ progressCallback (10, steps)
+            idrisGrinExitCode <- lift $ waitForProcess idrisGrinPh
+            lift $ progressCallback (11, steps)
+            (mIn, Just out, Just err, runGrinTestPh) <- lift $ createProcess_ "Test grin.bin" runGrinTest
+            enterInput mIn
+            runGrinTestExitCode <- lift $ waitForProcess runGrinTestPh
+
+            lift $ doesFileExist "test.bin.grin" >>= flip when (removeFile "test.bin.grin")
+            grinOut <- lift $ hGetContents out
+            lift $ addLogLines ["Compile and run grin."]
+            lift $ addLogLines $ lines grinOut
+            lift (hGetContents err >>= (addLogLines . lines))
+            when (runGrinTestExitCode /= ExitSuccess) $ do
+--              lift $ hClose out
+              throwE $ Failure Nothing $ Reason $ "Compiled Grin Test process exited with: " ++ show runGrinTestExitCode
+
+            -- Hack to ignore the last line, as we should keep the same runtime.c
+            -- for testing and non-testing code.
+            let grinOutLines = lines grinOut
+            pure $ unlines $ take (length grinOutLines - 1) grinOutLines
+
           _ -> do
-            lift $ hClose out
-            throwE $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
+            lift $ progressCallback (9, steps)
+            (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
+            lift $ progressCallback (10, steps)
+            enterInput mIn
+            idrisGrinExitCode <- lift $ timeout (timeoutInSecs * 1000) idrisGrinPh
+            lift $ progressCallback (11, steps)
+            lift $ doesFileExist "test.grin" >>= flip when (removeFile "test.grin")
+            grinOut <- lift $ hGetContents out
+            lift $ addLogLines ["Compile and run grin."]
+            lift $ addLogLines $ lines grinOut
+            lift (hGetContents err >>= (addLogLines . lines))
+            case idrisGrinExitCode of
+              ExitSuccess       -> pure grinOut
+              ExitFailure (-15) -> pure grinOut -- Timeout, killed, etc
+              _ -> do
+                lift $ hClose out
+                throwE $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
 
         lift $ progressCallback (12, steps)
         when (grinOut /= testOut) $
-          case optimised of
-            NonOptimised -> throwE $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
-            Optimised    -> bisect logs enterInput timeoutInSecs ".idris" stdInCreate testOut
+          case compiled of
+            NonOptimisedEval -> throwE $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
+            Compiled         -> throwE $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
+            OptimisedEval    -> bisect logs enterInput timeoutInSecs ".idris" stdInCreate testOut
       writeIORef result res
     readIORef result
 

@@ -20,16 +20,17 @@ import Text.Read (readMaybe)
 
 options :: [OptDescr (Endo Options)]
 options =
-  [ Option ['o'] ["output"]     (ReqArg (\a -> Endo $ \opts -> opts { output = a }) "FILE") "Executable ELF output FILE"
-  , Option ['g'] ["grin"]       (NoArg $ Endo $ \opts -> opts { outputGrin = True }) "Save the GRIN to the FILE"
-  , Option ['e'] ["eval"]       (NoArg $ Endo $ \opts -> opts { evalGrin = True }) "Eval the final optimised GRIN"
-  , Option ['q'] ["quiet"]      (NoArg $ Endo $ \opts -> opts { quiet = True }) "Do not log to stdout"
-  , Option []    ["O0"]         (NoArg $ Endo $ \opts -> opts { optimise = False }) "No optimisation"
-  , Option ['h'] ["help"]       (NoArg $ Endo $ \opts -> opts { help = True }) "Print help"
+  [ Option ['o'] ["output"]     (ReqArg (\a -> Endo $ \opts -> opts { output = a }) "FILE") "Executable ELF output FILE."
+  , Option ['g'] ["grin"]       (NoArg $ Endo $ \opts -> opts { outputGrin = True }) "Save the GRIN to the FILE."
+  , Option ['e'] ["eval"]       (NoArg $ Endo $ \opts -> opts { evalGrin = True }) "Eval the final optimised GRIN."
+  , Option ['q'] ["quiet"]      (NoArg $ Endo $ \opts -> opts { quiet = True }) "Do not log to stdout."
+  , Option []    ["O0"]         (NoArg $ Endo $ \opts -> opts { optimise = False }) "No optimisation."
+  , Option ['h'] ["help"]       (NoArg $ Endo $ \opts -> opts { help = True }) "Print help."
   , Option []    ["no-lint"]    (NoArg $ Endo $ \opts -> opts { lint = False }) "Turn off linting intermediate results."
   , Option []    ["output-dir"] (ReqArg (\a -> Endo $ \opts -> opts { outputDir = a }) "DIR") "Grin output directory."
   , Option []    ["dead-code-elim"] (NoArg $ Endo $ \opts -> opts { deadCodeElim = True }) "Turn on interprocedural dead code elimination."
   , Option []    ["binary-intermed"] (NoArg $ Endo $ \opts -> opts { saveInBinary = True }) "Save intermediate results in binary format too."
+  , Option []    ["dbg"]        (NoArg $ Endo $ \opts -> opts { debugSymbols = True }) "Generate executable with debug symbols."
   ]
 
 getOpts :: IO (Maybe Options)
