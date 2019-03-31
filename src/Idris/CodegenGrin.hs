@@ -212,6 +212,7 @@ primFn f ps = case f of
   LPlus   (Idris.ATInt intTy) -> Grin.SApp "idris_int_add" ps
   LPlus   Idris.ATFloat       -> Grin.SApp "idris_float_add" ps
   LMinus  (Idris.ATInt intTy) -> Grin.SApp "idris_int_sub" ps
+  LMinus  Idris.ATFloat       -> Grin.SApp "idris_float_sub" ps
   LTimes  (Idris.ATInt intTy) -> Grin.SApp "idris_int_mul" ps
   LTimes  Idris.ATFloat       -> Grin.SApp "idris_float_mul" ps
   LSDiv   (Idris.ATInt intTy) -> Grin.SApp "idris_int_div" ps
@@ -226,12 +227,14 @@ primFn f ps = case f of
   LCompl intTy -> undefined
   LSHL intTy -> undefined
   LLSHR intTy -> undefined
-  LASHR intTy -> undefined
   -}
+  LASHR Idris.ITNative -> Grin.SApp "idris_lashr_int" ps
   LEq (Idris.ATInt intTy) -> Grin.SApp "idris_int_eq" ps
-  --LEq Idris.ATFloat       -> Grin.SApp "_prim_float_eq" ps
+  LEq Idris.ATFloat       -> Grin.SApp "idris_float_eq" ps
 
   LSLt (Idris.ATInt intTy) -> Grin.SApp "idris_int_lt" ps
+  LSLt Idris.ATFloat       -> Grin.SApp "idris_float_lt" ps
+
   LSLe (Idris.ATInt intTy) -> Grin.SApp "idris_int_le" ps
   LSGt (Idris.ATInt intTy) -> Grin.SApp "idris_int_gt" ps
   LSGe (Idris.ATInt intTy) -> Grin.SApp "idris_int_ge" ps

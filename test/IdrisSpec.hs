@@ -8,8 +8,10 @@ import Test.Hspec.IdrisFrontend
 We keep the failing test cases for reference and regression detecting.
 -}
 
+modes = [NonOptimisedEval, OptimisedEval, Compiled]
+
 spec :: Spec
-spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimisedEval, OptimisedEval, Compiled] $ \mode ->
+spec = describe "Idris and Grin matches for:" $ forM_ modes $ \mode ->
   describe (show mode) $ do
     it "TDD 01 - 01 Hello World" $ timed $ idris mode 60 "test/tdd/chapter01/01_HelloWorld.idr"
     it "TDD 01 - 02 CalcType" $ timed $ idris mode 60 "test/tdd/chapter01/02_CalcType.idr"
@@ -79,3 +81,17 @@ spec = describe "Idris and Grin matches for:" $ forM_ [NonOptimisedEval, Optimis
     it "TDD 10 - 01 Exercises" $ timed $ idris mode 60 "test/tdd/chapter10/01_Exercises.idr"
     it "TDD 10 - 02 Recursive Views" $ timed $ idris mode 60 "test/tdd/chapter10/02_RecursiveViews.idr"
     it "TDD 10 - 02 Exercises" $ timed $ idris mode 60 "test/tdd/chapter10/02_Exercises.idr"
+    it "TDD 11 - 01 Exercises" $ timed $ idris mode 60 "test/tdd/chapter11/01_Exercises.idr"
+    it "TDD 11 - 01 Inf" $ timed $ idris mode 60 "test/tdd/chapter11/01_Inf.idr"
+    it "TDD 11 - 01 Quiz" $ timed $ idrisWithStdin
+      mode 60
+      "test/tdd/chapter11/01_Quiz.idr"
+      $ unlines
+        [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"
+        , "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"
+        , "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"
+        , "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"
+        , "quit"
+        ]
+    it "TDD 11 - 01 SumSimple" $ timed $ idris mode 60 "test/tdd/chapter11/01_SumSimple.idr"
+    it "TDD 11 - 01 ShiftTest" $ timed $ idris mode 60 "test/tdd/chapter11/01_ShiftTest.idr"

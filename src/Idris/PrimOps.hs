@@ -15,11 +15,27 @@ idrisPrimOps = withPrimPrelude [prog|
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
+  idris_float_eq idris_float_eq0 idris_float_eq1 =
+    (CGrFloat idris_float_eq0_1) <- fetch idris_float_eq0
+    (CGrFloat idris_float_eq1_1) <- fetch idris_float_eq1
+    idris_float_eq2 <- _prim_float_eq idris_float_eq0_1 idris_float_eq1_1
+    case idris_float_eq2 of
+      #False  -> pure (CGrInt 0)
+      #True   -> pure (CGrInt 1)
+
   idris_int_lt idris_int_lt0 idris_int_lt1 =
     (CGrInt idris_int_lt0_1) <- fetch idris_int_lt0
     (CGrInt idris_int_lt1_1) <- fetch idris_int_lt1
     idris_int_lt2 <- _prim_int_lt idris_int_lt0_1 idris_int_lt1_1
     case idris_int_lt2 of
+      #False  -> pure (CGrInt 0)
+      #True   -> pure (CGrInt 1)
+
+  idris_float_lt idris_float_lt0 idris_float_lt1 =
+    (CGrFloat idris_float_lt0_1) <- fetch idris_float_lt0
+    (CGrFloat idris_float_lt1_1) <- fetch idris_float_lt1
+    idris_float_lt2 <- _prim_float_lt idris_float_lt0_1 idris_float_lt1_1
+    case idris_float_lt2 of
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
@@ -47,6 +63,12 @@ idrisPrimOps = withPrimPrelude [prog|
       #False -> pure (CGrInt 0)
       #True  -> pure (CGrInt 1)
 
+  idris_lashr_int idris_lashr_int1 idris_lashr_int2 =
+    (CGrInt idris_lashr_int1_0) <- fetch idris_lashr_int1
+    (CGrInt idris_lashr_int2_0) <- fetch idris_lashr_int2
+    idris_lashr_int3 <- _prim_int_ashr idris_lashr_int1_0 idris_lashr_int2_0
+    pure (CGrInt idris_lashr_int3)
+
   idris_int_print idris_int_print0 =
     (CGrInt idris_int_print0_1) <- fetch idris_int_print0
     _prim_int_print idris_int_print0_1
@@ -57,6 +79,12 @@ idrisPrimOps = withPrimPrelude [prog|
     (CGrFloat idris_float_add1_1) <- fetch idris_float_add1
     idris_float_add3 <- _prim_float_add idris_float_add0_1 idris_float_add1_1
     pure (CGrFloat idris_float_add3)
+
+  idris_float_sub idris_float_sub0 idris_float_sub1 =
+    (CGrFloat idris_float_sub0_1) <- fetch idris_float_sub0
+    (CGrFloat idris_float_sub1_1) <- fetch idris_float_sub1
+    idris_float_sub3 <- _prim_float_sub idris_float_sub0_1 idris_float_sub1_1
+    pure (CGrFloat idris_float_sub3)
 
   idris_float_mul idris_float_mul0 idris_float_mul1 =
     (CGrFloat idris_float_mul0_1) <- fetch idris_float_mul0

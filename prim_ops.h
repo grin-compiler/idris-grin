@@ -11,7 +11,9 @@ struct string {
 
 struct string* create_string_len(int64_t l);
 struct string* create_string_copy(char *str);
-char* cstring(struct string* s);
+
+// ASSUMPTION: The buffer has enough memory allocated to store the string
+void cstring(char* buffer, struct string* s);
 
 void _prim_string_print(struct string* p1);
 void _prim_int_print(int64_t p1);
