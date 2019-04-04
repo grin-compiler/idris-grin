@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "prim_ops.h"
 
+#define BUFFER_SIZE 256
 
 /*
 NOTES:
@@ -14,7 +15,6 @@ NOTES:
  * _prim_ffi_file_eof is a placeholder implementation.
 
 */
-
 
 struct string* create_string_len(int64_t l) {
     struct string* r = (struct string*)malloc(sizeof(struct string));
@@ -193,10 +193,9 @@ struct string* _prim_int_str(int64_t p1){
 #ifdef DEBUG
     printf("_prim_int_str(%ld)\n", p1);
 #endif
-    int buffer_size = 256;
-    char buffer[buffer_size];
-    int len = snprintf(buffer, buffer_size, "%ld", p1);
-    if (len >= 0 && len < buffer_size) {
+    char buffer[BUFFER_SIZE];
+    int len = snprintf(buffer, BUFFER_SIZE, "%ld", p1);
+    if (len >= 0 && len < BUFFER_SIZE) {
         return create_string_copy(buffer);
     } else {
         printf("_prim_int_str\n");
@@ -225,10 +224,9 @@ struct string* _prim_float_string(float p1) {
 #ifdef DEBUG
     printf("_prim_float_string(%f)\n", p1);
 #endif
-    int buffer_size = 256;
-    char buffer[buffer_size];
-    int len = snprintf(buffer, buffer_size, "%.13g", p1);
-    if (len >= 0 && len < buffer_size) {
+    char buffer[BUFFER_SIZE];
+    int len = snprintf(buffer, BUFFER_SIZE, "%.13g", p1);
+    if (len >= 0 && len < BUFFER_SIZE) {
         return create_string_copy(buffer);
     } else {
         printf("_prim_float_string\n");
