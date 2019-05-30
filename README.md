@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/grin-tech/idris-grin.svg?branch=master)](https://travis-ci.org/grin-tech/idris-grin)
+[![Build Status](https://travis-ci.org/grin-compiler/idris-grin.svg?branch=master)](https://travis-ci.org/grin-compiler/idris-grin)
 
 # Idris frontend
 
