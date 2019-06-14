@@ -12,5 +12,5 @@ HelloWorld.idr, HellowWorld.grin, HelloWorld_opt.grin
 How to run the idris frontend experiments on your own:
 ```
 stack install
-stack exec idris -- test/tdd/chapter01/HelloWorld.idr -i test/tdd/chapter01 --codegen grin -o helloworld.grin
+stack exec idris -- test/tdd/chapter01/01_HelloWorld.idr -i test/tdd/chapter01 --codegen grin -o helloworld.grin
 ```
