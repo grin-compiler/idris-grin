@@ -15,7 +15,7 @@ extra-deps:
   - neat-interpolation-0.3.2.2
   - set-extra-1.4.1
   - git: https://github.com/grin-tech/grin
-    commit: f25b1be0d34de678ec0d6c0c474d008738d52066
+    commit: 21928a8461e0c95215a80669e939a2ed7d547f19
     subdirs:
     - grin
   - git: https://github.com/llvm-hs/llvm-hs-pretty
