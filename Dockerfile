@@ -7,4 +7,7 @@ RUN echo "deb http://archive.canonical.com/ubuntu cosmic partner" >> /etc/apt/so
 RUN apt update
 RUN apt install -y apt-utils
 RUN apt install -y llvm-7 llvm-7-dev clang-7
+
+USER gitpod
+
 RUN stack install
