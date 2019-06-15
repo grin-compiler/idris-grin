@@ -31,6 +31,14 @@ idrisPrimOps = withPrimPrelude [prog|
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
+  idris_word_lt idris_word_lt0 idris_word_lt1 =
+    (CGrWord idris_word_lt0_1) <- fetch idris_word_lt0
+    (CGrWord idris_word_lt1_1) <- fetch idris_word_lt1
+    idris_word_lt2 <- _prim_word_lt idris_word_lt0_1 idris_word_lt1_1
+    case idris_word_lt2 of
+      #False  -> pure (CGrInt 0)
+      #True   -> pure (CGrInt 1)
+
   idris_float_lt idris_float_lt0 idris_float_lt1 =
     (CGrFloat idris_float_lt0_1) <- fetch idris_float_lt0
     (CGrFloat idris_float_lt1_1) <- fetch idris_float_lt1
@@ -47,6 +55,14 @@ idrisPrimOps = withPrimPrelude [prog|
       #False -> pure (CGrInt 0)
       #True  -> pure (CGrInt 1)
 
+  idris_word_le idris_word_le0 idris_word_le1 =
+    (CGrWord idris_word_le0_1) <- fetch idris_word_le0
+    (CGrWord idris_word_le1_1) <- fetch idris_word_le1
+    idris_word_le2 <- _prim_word_le idris_word_le0_1 idris_word_le1_1
+    case idris_word_le2 of
+      #False -> pure (CGrInt 0)
+      #True  -> pure (CGrInt 1)
+
   idris_int_gt idris_int_gt0 idris_int_gt1 =
     (CGrInt idris_int_gt0_1) <- fetch idris_int_gt0
     (CGrInt idris_int_gt1_1) <- fetch idris_int_gt1
@@ -55,11 +71,27 @@ idrisPrimOps = withPrimPrelude [prog|
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
+  idris_word_gt idris_word_gt0 idris_word_gt1 =
+    (CGrWord idris_word_gt0_1) <- fetch idris_word_gt0
+    (CGrWord idris_word_gt1_1) <- fetch idris_word_gt1
+    idris_word_gt2 <- _prim_word_gt idris_word_gt0_1 idris_word_gt1_1
+    case idris_word_gt2 of
+      #False  -> pure (CGrInt 0)
+      #True   -> pure (CGrInt 1)
+
   idris_int_ge idris_int_ge0 idris_int_ge1 =
     (CGrInt idris_int_ge0_1) <- fetch idris_int_ge0
     (CGrInt idris_int_ge1_1) <- fetch idris_int_ge1
     idris_int_ge2 <- _prim_int_ge idris_int_ge0_1 idris_int_ge1_1
     case idris_int_ge2 of
+      #False -> pure (CGrInt 0)
+      #True  -> pure (CGrInt 1)
+
+  idris_word_ge idris_word_ge0 idris_word_ge1 =
+    (CGrWord idris_word_ge0_1) <- fetch idris_word_ge0
+    (CGrWord idris_word_ge1_1) <- fetch idris_word_ge1
+    idris_word_ge2 <- _prim_word_ge idris_word_ge0_1 idris_word_ge1_1
+    case idris_word_ge2 of
       #False -> pure (CGrInt 0)
       #True  -> pure (CGrInt 1)
 
