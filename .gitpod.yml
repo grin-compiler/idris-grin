@@ -1,4 +1,4 @@
 image:
     file: Dockerfile
 tasks:
-  - init: "mkdir -p ~/.stack; echo 'local-bin-path: /workspace/idris-grin/.bin' > ~/.stack/config.yaml; stack install"
+  - init: "echo 'export STACK_ROOT=/workspace/idris-grin/.stack' >> ~/.bashrc; source ~/.bashrc; mkdir -p $STACK_ROOT/.stack; echo 'local-bin-path: /workspace/idris-grin/.bin' > $STACK_ROOT/.stack/config.yaml; stack install"
