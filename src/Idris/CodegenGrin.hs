@@ -238,12 +238,12 @@ primFn f ps = case f of
   LSLe (Idris.ATInt intTy) -> Grin.SApp "idris_int_le" ps
   LSGt (Idris.ATInt intTy) -> Grin.SApp "idris_int_gt" ps
   LSGe (Idris.ATInt intTy) -> Grin.SApp "idris_int_ge" ps
-{-
-  LLt intTy -> Grin.SApp "_prim_int_lt" ps
-  LLe intTy -> Grin.SApp "_prim_int_le" ps
-  LGt intTy -> Grin.SApp "_prim_int_gt" ps
-  LGe intTy -> Grin.SApp "_prim_int_ge" ps
+  LLt intTy -> Grin.SApp "idris_word_lt" ps
+  LLe intTy -> Grin.SApp "idris_word_le" ps
+  LGt intTy -> Grin.SApp "idris_word_gt" ps
+  LGe intTy -> Grin.SApp "idris_word_ge" ps
 
+{-
   --LSLt Idris.ATFloat       -> Grin.SApp "_prim_float_lt" ps
 -}
   LSExt intTy1 intTy2 -> Grin.SApp "idris_ls_ext" ps
