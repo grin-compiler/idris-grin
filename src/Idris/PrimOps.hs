@@ -15,11 +15,11 @@ idrisPrimOps = withPrimPrelude [prog|
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
-  idris_float_eq idris_float_eq0 idris_float_eq1 =
-    (CGrFloat idris_float_eq0_1) <- fetch idris_float_eq0
-    (CGrFloat idris_float_eq1_1) <- fetch idris_float_eq1
-    idris_float_eq2 <- _prim_float_eq idris_float_eq0_1 idris_float_eq1_1
-    case idris_float_eq2 of
+  idris_double_eq idris_double_eq0 idris_double_eq1 =
+    (CGrDouble idris_double_eq0_1) <- fetch idris_double_eq0
+    (CGrDouble idris_double_eq1_1) <- fetch idris_double_eq1
+    idris_double_eq2 <- _prim_double_eq idris_double_eq0_1 idris_double_eq1_1
+    case idris_double_eq2 of
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
@@ -44,6 +44,14 @@ idrisPrimOps = withPrimPrelude [prog|
     (CGrFloat idris_float_lt1_1) <- fetch idris_float_lt1
     idris_float_lt2 <- _prim_float_lt idris_float_lt0_1 idris_float_lt1_1
     case idris_float_lt2 of
+      #False  -> pure (CGrInt 0)
+      #True   -> pure (CGrInt 1)
+
+  idris_double_lt idris_double_lt0 idris_double_lt1 =
+    (CGrDouble idris_double_lt0_1) <- fetch idris_double_lt0
+    (CGrDouble idris_double_lt1_1) <- fetch idris_double_lt1
+    idris_double_lt2 <- _prim_double_lt idris_double_lt0_1 idris_double_lt1_1
+    case idris_double_lt2 of
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
@@ -106,23 +114,23 @@ idrisPrimOps = withPrimPrelude [prog|
     _prim_int_print idris_int_print0_1
     pure (CUnit)
 
-  idris_float_add idris_float_add0 idris_float_add1 =
-    (CGrFloat idris_float_add0_1) <- fetch idris_float_add0
-    (CGrFloat idris_float_add1_1) <- fetch idris_float_add1
-    idris_float_add3 <- _prim_float_add idris_float_add0_1 idris_float_add1_1
-    pure (CGrFloat idris_float_add3)
+  idris_double_add idris_double_add0 idris_double_add1 =
+    (CGrDouble idris_double_add0_1) <- fetch idris_double_add0
+    (CGrDouble idris_double_add1_1) <- fetch idris_double_add1
+    idris_double_add3 <- _prim_double_add idris_double_add0_1 idris_double_add1_1
+    pure (CGrDouble idris_double_add3)
 
-  idris_float_sub idris_float_sub0 idris_float_sub1 =
-    (CGrFloat idris_float_sub0_1) <- fetch idris_float_sub0
-    (CGrFloat idris_float_sub1_1) <- fetch idris_float_sub1
-    idris_float_sub3 <- _prim_float_sub idris_float_sub0_1 idris_float_sub1_1
-    pure (CGrFloat idris_float_sub3)
+  idris_double_sub idris_double_sub0 idris_double_sub1 =
+    (CGrDouble idris_double_sub0_1) <- fetch idris_double_sub0
+    (CGrDouble idris_double_sub1_1) <- fetch idris_double_sub1
+    idris_double_sub3 <- _prim_double_sub idris_double_sub0_1 idris_double_sub1_1
+    pure (CGrDouble idris_double_sub3)
 
-  idris_float_mul idris_float_mul0 idris_float_mul1 =
-    (CGrFloat idris_float_mul0_1) <- fetch idris_float_mul0
-    (CGrFloat idris_float_mul1_1) <- fetch idris_float_mul1
-    idris_float_mul3 <- _prim_float_mul idris_float_mul0_1 idris_float_mul1_1
-    pure (CGrFloat idris_float_mul3)
+  idris_double_mul idris_double_mul0 idris_double_mul1 =
+    (CGrDouble idris_double_mul0_1) <- fetch idris_double_mul0
+    (CGrDouble idris_double_mul1_1) <- fetch idris_double_mul1
+    idris_double_mul3 <- _prim_double_mul idris_double_mul0_1 idris_double_mul1_1
+    pure (CGrDouble idris_double_mul3)
 
   idris_int_add idris_int_add0 idris_int_add1 =
     (CGrInt idris_int_add0_1) <- fetch idris_int_add0
@@ -148,11 +156,11 @@ idrisPrimOps = withPrimPrelude [prog|
     idris_int_div2 <- _prim_int_div idris_int_div0_1 idris_int_div1_1
     pure (CGrInt idris_int_div2)
 
-  idris_float_div idris_float_div0 idris_float_div1 =
-    (CGrFloat idris_float_div0_1) <- fetch idris_float_div0
-    (CGrFloat idris_float_div1_1) <- fetch idris_float_div1
-    idris_float_div2 <- _prim_float_div idris_float_div0_1 idris_float_div1_1
-    pure (CGrFloat idris_float_div2)
+  idris_double_div idris_double_div0 idris_double_div1 =
+    (CGrDouble idris_double_div0_1) <- fetch idris_double_div0
+    (CGrDouble idris_double_div1_1) <- fetch idris_double_div1
+    idris_double_div2 <- _prim_double_div idris_double_div0_1 idris_double_div1_1
+    pure (CGrDouble idris_double_div2)
 
   idris_write_str idris_write_str1 idris_write_str2 =
     (CGrString idris_write_str2_0) <- fetch idris_write_str2
@@ -218,15 +226,20 @@ idrisPrimOps = withPrimPrelude [prog|
     idris_str_int2 <- _prim_str_int idris_str_int1_0
     pure (CGrInt idris_str_int2)
 
-  idris_int_float idris_int_float1 =
-    (CGrInt idris_int_float1_0) <- fetch idris_int_float1
-    idris_int_float2 <- _prim_int_float idris_int_float1_0
-    pure (CGrFloat idris_int_float2)
+  idris_int_double idris_int_double1 =
+    (CGrInt idris_int_double1_0) <- fetch idris_int_double1
+    idris_int_double2 <- _prim_int_double idris_int_double1_0
+    pure (CGrDouble idris_int_double2)
 
-  idris_float_str idris_float_str1 =
-    (CGrFloat idris_float_str1_0) <- fetch idris_float_str1
-    idris_float_str2 <- _prim_float_string idris_float_str1_0
-    pure (CGrString idris_float_str2)
+  idris_double_int idris_double_int1 =
+    (CGrDouble idris_double_int1_0) <- fetch idris_double_int1
+    idris_double_int2 <- _prim_double_int idris_double_int1_0
+    pure (CGrInt idris_double_int2)
+
+  idris_double_str idris_double_str1 =
+    (CGrDouble idris_double_str1_0) <- fetch idris_double_str1
+    idris_double_str2 <- _prim_double_string idris_double_str1_0
+    pure (CGrString idris_double_str2)
 
   idris_ffi_file_eof idris_ffi_file_eof1 =
     (CGrInt idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1

@@ -210,13 +210,13 @@ defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat (sexp fname sexp0)
 primFn :: Idris.PrimFn -> [SimpleVal] -> Exp
 primFn f ps = case f of
   LPlus   (Idris.ATInt intTy) -> Grin.SApp "idris_int_add" ps
-  LPlus   Idris.ATFloat       -> Grin.SApp "idris_float_add" ps
+  LPlus   Idris.ATFloat       -> Grin.SApp "idris_double_add" ps
   LMinus  (Idris.ATInt intTy) -> Grin.SApp "idris_int_sub" ps
-  LMinus  Idris.ATFloat       -> Grin.SApp "idris_float_sub" ps
+  LMinus  Idris.ATFloat       -> Grin.SApp "idris_double_sub" ps
   LTimes  (Idris.ATInt intTy) -> Grin.SApp "idris_int_mul" ps
-  LTimes  Idris.ATFloat       -> Grin.SApp "idris_float_mul" ps
+  LTimes  Idris.ATFloat       -> Grin.SApp "idris_double_mul" ps
   LSDiv   (Idris.ATInt intTy) -> Grin.SApp "idris_int_div" ps
-  LSDiv   Idris.ATFloat       -> Grin.SApp "idris_float_div" ps
+  LSDiv   Idris.ATFloat       -> Grin.SApp "idris_double_div" ps
   {-
   LUDiv intTy -> undefined
   LURem intTy -> undefined
@@ -230,10 +230,10 @@ primFn f ps = case f of
   -}
   LASHR Idris.ITNative -> Grin.SApp "idris_lashr_int" ps
   LEq (Idris.ATInt intTy) -> Grin.SApp "idris_int_eq" ps
-  LEq Idris.ATFloat       -> Grin.SApp "idris_float_eq" ps
+  LEq Idris.ATFloat       -> Grin.SApp "idris_double_eq" ps
 
   LSLt (Idris.ATInt intTy) -> Grin.SApp "idris_int_lt" ps
-  LSLt Idris.ATFloat       -> Grin.SApp "idris_float_lt" ps
+  LSLt Idris.ATFloat       -> Grin.SApp "idris_double_lt" ps
 
   LSLe (Idris.ATInt intTy) -> Grin.SApp "idris_int_le" ps
   LSGt (Idris.ATInt intTy) -> Grin.SApp "idris_int_gt" ps
@@ -244,7 +244,7 @@ primFn f ps = case f of
   LGe intTy -> Grin.SApp "idris_word_ge" ps
 
 {-
-  --LSLt Idris.ATFloat       -> Grin.SApp "_prim_float_lt" ps
+  --LSLt Idris.ATFloat       -> Grin.SApp "_prim_double_lt" ps
 -}
   LSExt intTy1 intTy2 -> Grin.SApp "idris_ls_ext" ps
   LZExt intTy1 intTy2 -> Grin.SApp "idris_lz_ext" ps
@@ -253,21 +253,19 @@ primFn f ps = case f of
   LStrLt -> Grin.SApp "idris_str_lt" ps
   LStrEq -> Grin.SApp "idris_str_eq" ps
   LStrLen -> Grin.SApp "idris_str_len" ps
-  LIntFloat intTy -> Grin.SApp "idris_int_float" ps
-{-
-  LFloatInt intTy -> undefined
-}
--}
+  LIntFloat intTy -> Grin.SApp "idris_int_double" ps
+  LFloatInt intTy -> Grin.SApp "idris_double_int" ps
   LIntStr intTy -> Grin.SApp "idris_int_str" ps
   LStrInt intTy -> Grin.SApp "idris_str_int" ps
-  LFloatStr -> Grin.SApp "idris_float_str" ps
+  LFloatStr -> Grin.SApp "idris_double_str" ps
 {-  LStrFloat -> undefined -}
   LChInt intTy -> Grin.SApp "idris_ch_int" ps
   LIntCh intTy -> Grin.SApp "idris_int_ch" ps
 {-
   LBitCast arithTy1 arithTy2 -> undefined -- Only for values of equal width
-  LFExp -> undefined
-  LFLog -> undefined
+-}
+  LFExp -> Grin.SApp "idris_double_exp" ps
+{-  LFLog -> undefined
   LFSin -> undefined
   LFCos -> undefined
   LFTan -> undefined
@@ -318,7 +316,7 @@ val fname = \case
 lvar :: Name -> LVar -> Name
 lvar fname = \case
   Idris.Loc loc -> packName $ unpackName fname ++ show loc
-  Glob nm       -> name nm
+  Glob nm       -> name $ traceShow nm nm
 
 name :: Idris.Name -> Name
 name n = packName $ "idr_" ++ (Idris.showCG n)
