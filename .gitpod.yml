@@ -1,2 +1,4 @@
 image:
     file: Dockerfile
+tasks:
+  - init: stack install
