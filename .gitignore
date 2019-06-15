@@ -26,3 +26,4 @@ output/
 .grin-output/
 .idris
 stack.yaml.lock
+.bin
