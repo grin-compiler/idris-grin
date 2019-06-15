@@ -10,4 +10,5 @@ RUN apt install -y llvm-7 llvm-7-dev clang-7
 
 USER gitpod
 
+RUN cd /workspace/idris-grin
 RUN stack install
