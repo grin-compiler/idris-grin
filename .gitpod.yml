@@ -1,4 +1,6 @@
 image:
     file: Dockerfile
 tasks:
-  - init: stack install
+  - init: mkdir -p ~/.stack
+    init: echo "local-bin-path: /workspace/idris-grin/.bin" > ~/.stack/config.yaml
+    init: stack install
