@@ -27,3 +27,4 @@ output/
 .idris
 stack.yaml.lock
 .bin
+.stack
