@@ -55,6 +55,67 @@ idrisPrimOps = withPrimPrelude [prog|
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
 
+  idris_double_log idris_double_log1 =
+    (CGrDouble idris_double_log1_0) <- fetch idris_double_log1
+    idris_double_log2 <- _prim_double_log idris_double_log1_0
+    pure (CGrDouble idris_double_log2)
+
+  idris_double_sin idris_double_sin1 =
+    (CGrDouble idris_double_sin1_0) <- fetch idris_double_sin1
+    idris_double_sin2 <- _prim_double_sin idris_double_sin1_0
+    pure (CGrDouble idris_double_sin2)
+
+  idris_double_cos idris_double_cos1 =
+    (CGrDouble idris_double_cos1_0) <- fetch idris_double_cos1
+    idris_double_cos2 <- _prim_double_cos idris_double_cos1_0
+    pure (CGrDouble idris_double_cos2)
+
+  idris_double_tan idris_double_tan1 =
+    (CGrDouble idris_double_tan1_0) <- fetch idris_double_tan1
+    idris_double_tan2 <- _prim_double_tan idris_double_tan1_0
+    pure (CGrDouble idris_double_tan2)
+
+  idris_double_asin idris_double_asin1 =
+    (CGrDouble idris_double_asin1_0) <- fetch idris_double_asin1
+    idris_double_asin2 <- _prim_double_asin idris_double_asin1_0
+    pure (CGrDouble idris_double_asin2)
+
+  idris_double_acos idris_double_acos1 =
+    (CGrDouble idris_double_acos1_0) <- fetch idris_double_acos1
+    idris_double_acos2 <- _prim_double_acos idris_double_acos1_0
+    pure (CGrDouble idris_double_acos2)
+
+  idris_double_atan idris_double_atan1 =
+    (CGrDouble idris_double_atan1_0) <- fetch idris_double_atan1
+    idris_double_atan2 <- _prim_double_atan idris_double_atan1_0
+    pure (CGrDouble idris_double_atan2)
+
+  idris_double_atan_two idris_double_atan_two1 idris_double_atan_two2 =
+    (CGrDouble idris_double_atan_two1_0) <- fetch idris_double_atan_two1
+    (CGrDouble idris_double_atan_two2_0) <- fetch idris_double_atan_two2
+    idris_double_atan_two3 <- _prim_double_atan2 idris_double_atan_two1_0 idris_double_atan_two2_0
+    pure (CGrDouble idris_double_atan_two3)
+
+  idris_double_sqrt idris_double_sqrt1 =
+    (CGrDouble idris_double_sqrt1_0) <- fetch idris_double_sqrt1
+    idris_double_sqrt2 <- _prim_double_sqrt idris_double_sqrt1_0
+    pure (CGrDouble idris_double_sqrt2)
+
+  idris_double_floor idris_double_floor1 =
+    (CGrDouble idris_double_floor1_0) <- fetch idris_double_floor1
+    idris_double_floor2 <- _prim_double_floor idris_double_floor1_0
+    pure (CGrDouble idris_double_floor2)
+
+  idris_double_ceil idris_double_ceil1 =
+    (CGrDouble idris_double_ceil1_0) <- fetch idris_double_ceil1
+    idris_double_ceil2 <- _prim_double_ceil idris_double_ceil1_0
+    pure (CGrDouble idris_double_ceil2)
+
+  idris_double_negate idris_double_negate1 =
+    (CGrDouble idris_double_negate1_0) <- fetch idris_double_negate1
+    idris_double_negate2 <- _prim_double_negate idris_double_negate1_0
+    pure (CGrDouble idris_double_negate2)
+
   idris_int_le idris_int_le0 idris_int_le1 =
     (CGrInt idris_int_le0_1) <- fetch idris_int_le0
     (CGrInt idris_int_le1_1) <- fetch idris_int_le1
@@ -240,6 +301,11 @@ idrisPrimOps = withPrimPrelude [prog|
     (CGrDouble idris_double_str1_0) <- fetch idris_double_str1
     idris_double_str2 <- _prim_double_string idris_double_str1_0
     pure (CGrString idris_double_str2)
+
+  idris_str_double idris_str_double1 =
+    (CGrString idris_str_double1_0) <- fetch idris_str_double1
+    idris_str_double2 <- _prim_string_double idris_str_double1_0
+    pure (CGrDouble idris_str_double2)
 
   idris_ffi_file_eof idris_ffi_file_eof1 =
     (CGrInt idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1

@@ -258,26 +258,25 @@ primFn f ps = case f of
   LIntStr intTy -> Grin.SApp "idris_int_str" ps
   LStrInt intTy -> Grin.SApp "idris_str_int" ps
   LFloatStr -> Grin.SApp "idris_double_str" ps
-{-  LStrFloat -> undefined -}
+  LStrFloat -> Grin.SApp "idris_str_double" ps
   LChInt intTy -> Grin.SApp "idris_ch_int" ps
   LIntCh intTy -> Grin.SApp "idris_int_ch" ps
 {-
   LBitCast arithTy1 arithTy2 -> undefined -- Only for values of equal width
 -}
   LFExp -> Grin.SApp "idris_double_exp" ps
-{-  LFLog -> undefined
-  LFSin -> undefined
-  LFCos -> undefined
-  LFTan -> undefined
-  LFASin -> undefined
-  LFACos -> undefined
-  LFATan -> undefined
-  LFATan2 -> undefined
-  LFSqrt -> undefined
-  LFFloor -> undefined
-  LFCeil -> undefined
-  LFNegate -> undefined
--}
+  LFLog -> Grin.SApp "idris_double_log" ps
+  LFSin -> Grin.SApp "idris_double_sin" ps
+  LFCos -> Grin.SApp "idris_double_cos" ps
+  LFTan -> Grin.SApp "idris_double_tan" ps
+  LFASin -> Grin.SApp "idris_double_asin" ps
+  LFACos -> Grin.SApp "idris_double_acos" ps
+  LFATan -> Grin.SApp "idris_double_atan" ps
+  LFATan2 -> Grin.SApp "idris_double_atan_two" ps
+  LFSqrt -> Grin.SApp "idris_double_sqrt" ps
+  LFFloor -> Grin.SApp "idris_double_floor" ps
+  LFCeil -> Grin.SApp "idris_double_ceil" ps
+  LFNegate -> Grin.SApp "idris_double_negate" ps
   LStrHead -> Grin.SApp "idris_str_head" ps
   LStrTail -> Grin.SApp "idris_str_tail" ps
   LStrCons -> Grin.SApp "idris_str_cons" ps
