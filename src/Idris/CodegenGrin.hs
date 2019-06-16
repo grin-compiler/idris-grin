@@ -248,9 +248,7 @@ primFn f ps = case f of
 -}
   LSExt intTy1 intTy2 -> Grin.SApp "idris_ls_ext" ps
   LZExt intTy1 intTy2 -> Grin.SApp "idris_lz_ext" ps
-{-
-  LTrunc intTy1 intTy2 -> undefined
--}
+  LTrunc intTy1 intTy2 -> Grin.SApp "idris_l_trunc" ps
   LStrConcat -> Grin.SApp "idris_str_concat" ps
   LStrLt -> Grin.SApp "idris_str_lt" ps
   LStrEq -> Grin.SApp "idris_str_eq" ps

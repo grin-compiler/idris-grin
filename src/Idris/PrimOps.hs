@@ -243,6 +243,12 @@ idrisPrimOps = withPrimPrelude [prog|
     idris_ls_ext3 <- _prim_int_add idris_ls_ext2 0
     pure (CGrInt idris_ls_ext3)
 
+  -- TODO: the implementation here is wrong, needs to be fixed.
+  idris_l_trunc idris_l_trunc1 =
+    (CGrInt idris_l_trunc2) <- fetch idris_l_trunc1
+    idris_l_trunc3 <- _prim_int_add idris_l_trunc2 0
+    pure (CGrInt idris_l_trunc3)
+
   idris_ch_int idris_ch_int1 =
     (CGrInt idris_ch_int2) <- fetch idris_ch_int1
     pure (CGrInt idris_ch_int2)
