@@ -95,3 +95,4 @@ spec = describe "Idris and Grin matches for:" $ forM_ modes $ \mode ->
         ]
     it "TDD 11 - 01 SumSimple" $ timed $ idris mode 60 "test/tdd/chapter11/01_SumSimple.idr"
     it "TDD 11 - 01 ShiftTest" $ timed $ idris mode 60 "test/tdd/chapter11/01_ShiftTest.idr"
+    it "Zurihac - 02 Double" $ timed $ idris mode 60 "test/zurihac/02_Double.idr"

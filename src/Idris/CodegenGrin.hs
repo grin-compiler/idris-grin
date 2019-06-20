@@ -327,7 +327,7 @@ literal = \case
   Idris.BI integer -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral integer)]
   Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString $ fromString string]
   Idris.Ch char    -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral $ ord $ char)]
-  Idris.Fl double  -> ConstTagNode (Tag C "GrFloat") [Lit $ LFloat (realToFrac double)]
+  Idris.Fl double  -> ConstTagNode (Tag C "GrDouble") [Lit $ LDouble double]
   {-
   Idris.B64 word64 -> LWord64 word64
   Idris.Str string -> traceShow ("TODO: literal should implement String " ++ string) $ LInt64 1234
