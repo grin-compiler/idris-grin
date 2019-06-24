@@ -221,13 +221,13 @@ primFn f ps = case f of
   LUDiv intTy -> undefined
   LURem intTy -> undefined
   LSRem arithTy -> undefined
-  LAnd intTy -> undefined
   LOr intTy -> undefined
   LXOr intTy -> undefined
   LCompl intTy -> undefined
-  LSHL intTy -> undefined
-  LLSHR intTy -> undefined
   -}
+  LAnd intTy -> Grin.SApp "idris_int_and" ps
+  LSHL intTy -> Grin.SApp "idris_shl_int" ps
+  LLSHR intTy -> Grin.SApp "idris_lshr_int" ps
   LASHR Idris.ITNative -> Grin.SApp "idris_lashr_int" ps
   LEq (Idris.ATInt intTy) -> Grin.SApp "idris_int_eq" ps
   LEq Idris.ATFloat       -> Grin.SApp "idris_double_eq" ps
@@ -328,23 +328,16 @@ literal = \case
   Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString $ fromString string]
   Idris.Ch char    -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral $ ord $ char)]
   Idris.Fl double  -> ConstTagNode (Tag C "GrDouble") [Lit $ LDouble double]
-  {-
-  Idris.B64 word64 -> LWord64 word64
-  Idris.Str string -> traceShow ("TODO: literal should implement String " ++ string) $ LInt64 1234
-  -}
-{-
-  Idris.B8 word8 -> undefined
-  Idris.B16 word16 -> undefined
-  Idris.B32 word32 -> undefined
-  Idris.B64 word64 -> LWord64 word64
+  Idris.B8 word8   -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral word8)]
+  Idris.B16 word16 -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral word16)]
+  Idris.B32 word32 -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral word32)]
+  Idris.B64 word64 -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral word64)]
   Idris.AType arithTy -> undefined
   Idris.StrType -> undefined
   Idris.WorldType -> undefined
   Idris.TheWorld -> undefined
   Idris.VoidType -> undefined
   Idris.Forgot -> undefined
--}
-  x -> error $ printf "unsupported literal %s" (show x)
 
 preparation :: [PipelineStep]
 preparation =

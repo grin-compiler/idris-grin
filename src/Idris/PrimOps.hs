@@ -32,9 +32,11 @@ idrisPrimOps = withPrimPrelude [prog|
       #True   -> pure (CGrInt 1)
 
   idris_word_lt idris_word_lt0 idris_word_lt1 =
-    (CGrWord idris_word_lt0_1) <- fetch idris_word_lt0
-    (CGrWord idris_word_lt1_1) <- fetch idris_word_lt1
-    idris_word_lt2 <- _prim_word_lt idris_word_lt0_1 idris_word_lt1_1
+    (CGrInt idris_word_lt0_1) <- fetch idris_word_lt0
+    (CGrInt idris_word_lt1_1) <- fetch idris_word_lt1
+    idris_word_lt0_2 <- _prim_int_word idris_word_lt0_1
+    idris_word_lt1_2 <- _prim_int_word idris_word_lt1_1
+    idris_word_lt2 <- _prim_word_lt idris_word_lt0_2 idris_word_lt1_2
     case idris_word_lt2 of
       #False  -> pure (CGrInt 0)
       #True   -> pure (CGrInt 1)
@@ -164,11 +166,30 @@ idrisPrimOps = withPrimPrelude [prog|
       #False -> pure (CGrInt 0)
       #True  -> pure (CGrInt 1)
 
+  idris_shl_int idris_shl_int1 idris_shl_int2 =
+    (CGrInt idris_shl_int1_0) <- fetch idris_shl_int1
+    (CGrInt idris_shl_int2_0) <- fetch idris_shl_int2
+    idris_shl_int3 <- _prim_int_shl idris_shl_int1_0 idris_shl_int2_0
+    pure (CGrInt idris_shl_int3)
+
+  idris_int_and idris_int_and1 idris_int_and2 =
+    (CGrInt idris_int_and1_0) <- fetch idris_int_and1
+    (CGrInt idris_int_and2_0) <- fetch idris_int_and2
+    idris_int_and3 <- _prim_int_and idris_int_and1_0 idris_int_and2_0
+    pure (CGrInt idris_int_and3)
+
+  -- TODO: Rename to ashr
   idris_lashr_int idris_lashr_int1 idris_lashr_int2 =
     (CGrInt idris_lashr_int1_0) <- fetch idris_lashr_int1
     (CGrInt idris_lashr_int2_0) <- fetch idris_lashr_int2
     idris_lashr_int3 <- _prim_int_ashr idris_lashr_int1_0 idris_lashr_int2_0
     pure (CGrInt idris_lashr_int3)
+
+  idris_lshr_int idris_lshr_int1 idris_lshr_int2 =
+    (CGrInt idris_lshr_int1_0) <- fetch idris_lshr_int1
+    (CGrInt idris_lshr_int2_0) <- fetch idris_lshr_int2
+    idris_lshr_int3 <- _prim_int_ashr idris_lshr_int1_0 idris_lshr_int2_0
+    pure (CGrInt idris_lshr_int3)
 
   idris_int_print idris_int_print0 =
     (CGrInt idris_int_print0_1) <- fetch idris_int_print0
@@ -314,13 +335,11 @@ idrisPrimOps = withPrimPrelude [prog|
 
   idris_lz_ext idris_lz_ext1 =
     (CGrInt idris_lz_ext2) <- fetch idris_lz_ext1
-    idris_lz_ext3 <- _prim_int_add idris_lz_ext2 0
-    pure (CGrInt idris_lz_ext3)
+    pure (CGrInt idris_lz_ext2)
 
   idris_ls_ext idris_ls_ext1 =
     (CGrInt idris_ls_ext2) <- fetch idris_ls_ext1
-    idris_ls_ext3 <- _prim_int_add idris_ls_ext2 0
-    pure (CGrInt idris_ls_ext3)
+    pure (CGrInt idris_ls_ext2)
 
   -- TODO: the implementation here is wrong, needs to be fixed.
   idris_l_trunc idris_l_trunc1 =
@@ -343,6 +362,7 @@ idrisPrimOps = withPrimPrelude [prog|
 
   idris_error idris_error1 =
     _prim_error idris_error1
+    pure (CGrError)
 
   prim__stdin =
     pure (CGrInt 0)
