@@ -5,7 +5,7 @@ allow-newer: true
 
 packages:
 - "."
-#  - '../grin/grin'
+# - "../grin/grin"
 
 extra-deps:
   - monad-gen-0.3.0.1
