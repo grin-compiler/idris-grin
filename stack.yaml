@@ -22,9 +22,10 @@ extra-deps:
   - git: https://github.com/llvm-hs/llvm-hs-pretty
     commit: 0d04346ea179e96797a284d094e44e538fbddcf2
   - git: https://github.com/csabahruska/llvm-hs.git
-    commit: 37aaa694d2f7907634f7af602d9aae125101db8d
+    commit: 868e23a13942703255979369defdb49ac57b6866
     subdirs:
     - llvm-hs
+    - llvm-hs-pure
 
 flags:
   llvm-hs:
