@@ -19,7 +19,7 @@ extra-deps:
   - llvm-hs-pretty-0.6.1.0
 
   - github: grin-tech/grin
-    commit: f25b1be0d34de678ec0d6c0c474d008738d52066
+    commit: babd2f01e8fb8445fee1ff509b139f45f16ff674
     subdirs:
       - grin
 

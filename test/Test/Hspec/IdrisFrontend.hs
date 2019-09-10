@@ -148,13 +148,9 @@ instance Example IdrisCodeGen where
             lift $ addLogLines $ lines grinOut
             lift (hGetContents err >>= (addLogLines . lines))
             when (runGrinTestExitCode /= ExitSuccess) $ do
---              lift $ hClose out
               throwE $ Failure Nothing $ Reason $ "Compiled Grin Test process exited with: " ++ show runGrinTestExitCode
 
-            -- Hack to ignore the last line, as we should keep the same runtime.c
-            -- for testing and non-testing code.
-            let grinOutLines = lines grinOut
-            pure $ unlines $ take (length grinOutLines - 1) grinOutLines
+            pure grinOut
 
           _ -> do
             lift $ progressCallback (9, steps)

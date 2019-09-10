@@ -84,6 +84,7 @@ codegenGrin o@Options{..} CodegenInfo{..} = do
       , _poLogging = not quiet
       , _poLintOnChange = lint
       , _poSaveBinary = saveInBinary
+      , _poCFiles = ["prim_ops.c", "runtime.c"]
       })
     (program simpleDecls)
     preparation
