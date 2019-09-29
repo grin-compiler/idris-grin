@@ -159,6 +159,17 @@ sexp fname = \case
 foreignFun fname _ (FStr "idris_int_print") [(_, arg)] = Grin.SApp "idris_int_print" [Var . lvar fname $ arg]
 foreignFun fname _ (FStr "fileEOF") [(_,lvar0)] = Grin.SApp "idris_ffi_file_eof" [Var . lvar fname $ lvar0]
 foreignFun fname _ (FStr "idris_usleep") [(_,lvar0)] = Grin.SApp "idris_usleep" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_time") [] = Grin.SApp "idris_time" []
+foreignFun fname _ (FStr "idris_errno") [] = Grin.SApp "idris_errno" []
+foreignFun fname _ (FStr "fileSize") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileSize" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "fileOpen") [(_FCon_C_Str0, lvar0), (_FCon_C_Str1, lvar1)] = Grin.SApp "idris_fileOpen" [Var . lvar fname $ lvar0, Var . lvar fname $ lvar1]
+foreignFun fname _ (FStr "fileError") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileError" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "fileClose") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileClose" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_addToString") [(_FCon_C_Ptr, lvar0), (_FCon_C_Str, lvar1)] = Grin.SApp "idris_addToString" [Var . lvar fname $ lvar0, Var . lvar fname $ lvar1]
+foreignFun fname _ (FStr "idris_mkFileError") [(_FCon_C_Ptr_VM, lvar0)] = Grin.SApp "idris_mkFileError" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_getString") [(_FCon_C_Ptr0VM, lvar0), (_FCon_C_Ptr1StrBuffer, lvar1)] = Grin.SApp "idris_getString" [Var . lvar fname $ lvar0, Var . lvar fname $ lvar1]
+foreignFun fname _ (FStr "idris_makeStringBuffer") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative,lvar0)] = Grin.SApp "idris_makeStringBuffer" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "isNull") [(_FCon_C_Ptr,lvar0)] = Grin.SApp "isNull" [Var . lvar fname $ lvar0]
 foreignFun fname _ rest args = error $ show rest ++ " " ++ show args
 
 alts :: Name -> [SAlt] -> [Exp]
@@ -249,9 +260,7 @@ primFn f ps = case f of
 -}
   LSExt intTy1 intTy2 -> Grin.SApp "idris_ls_ext" ps
   LZExt intTy1 intTy2 -> Grin.SApp "idris_lz_ext" ps
-{-
-  LTrunc intTy1 intTy2 -> undefined
--}
+  LTrunc intTy1 intTy2 -> Grin.SApp "idris_ltrunc" ps
   LStrConcat -> Grin.SApp "idris_str_concat" ps
   LStrLt -> Grin.SApp "idris_str_lt" ps
   LStrEq -> Grin.SApp "idris_str_eq" ps

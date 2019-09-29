@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
+#include <errno.h>
 #include "prim_ops.h"
 
 #define BUFFER_SIZE 256
@@ -240,4 +242,19 @@ int64_t _prim_char_int(char p1) {
     printf("_prim_char_int(%c)\n", p1);
 #endif
     return (int64_t)p1;
+}
+
+int64_t _prim_time() {
+#ifdef DEBUG
+    printf("_prim_time()\n");
+#endif
+    time_t t = time(NULL);
+    return (int64_t)t;
+}
+
+int64_t _prim_errno(){
+#ifdef DEBUG
+    printf("_prim_errno()\n");
+#endif
+    return errno;
 }

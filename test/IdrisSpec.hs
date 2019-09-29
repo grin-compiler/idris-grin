@@ -11,7 +11,7 @@ We keep the failing test cases for reference and regression detecting.
 modes = [NonOptimisedEval, OptimisedEval, Compiled]
 
 spec :: Spec
-spec = describe "Idris and Grin matches for:" $ forM_ modes $ \mode ->
+spec = describe "Idris and Grin matches for:" $ forM_ modes $ \mode -> do
   describe (show mode) $ do
     it "TDD 01 - 01 Hello World" $ timed $ idris mode 60 "test/tdd/chapter01/01_HelloWorld.idr"
     it "TDD 01 - 02 CalcType" $ timed $ idris mode 60 "test/tdd/chapter01/02_CalcType.idr"
@@ -95,3 +95,19 @@ spec = describe "Idris and Grin matches for:" $ forM_ modes $ \mode ->
         ]
     it "TDD 11 - 01 SumSimple" $ timed $ idris mode 60 "test/tdd/chapter11/01_SumSimple.idr"
     it "TDD 11 - 01 ShiftTest" $ timed $ idris mode 60 "test/tdd/chapter11/01_ShiftTest.idr"
+    it "TDD 11 - 02 InfiniteProcesses" $ idrisWithStdin mode 60 "test/tdd/chapter11/02_InfiniteProcesses.idr" $
+      unlines [ "1", "2", "3", "4", "5" ]
+    it "TDD 11 - 02 TotalArithQuiz" $ idrisWithStdin mode 60 "test/tdd/chapter11/02_TotalArithQuizTest.idr" $
+      unlines [ "10", "11", "12", "23", "56", "78", "100" ]
+    -- TODO: Investigate: It thhrows an closed error handler and starts a process which
+    -- runs into an infinite loop. Burning the CPU.
+    xit "TDD 11 - 02 Exercise" $ idrisWithStdin mode 60 "test/tdd/chapter11/02_ExerciseTest.idr" $
+      unlines [ "a", "b", "hello", "World" ]
+    it "TDD 11 - 03 ArithCmd" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_ArithCmdTest.idr" $
+      unlines [ "1", "2", "3", "4", "5" ]
+    it "TDD 11 - 03 ArithCmdDo" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_ArithCmdDoTest.idr" $
+      unlines [ "1", "2", "3", "4", "5" ]
+    it "TDD 11 - 03 Exercise" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_ExerciseTest.idr" $
+      unlines [ "1", "2", "3", "4", "5" ]
+    it "TDD 11 - 03 Termination" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_TerminationTest.idr" $
+      unlines [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]

@@ -1,0 +1,9 @@
+TODO:
+ * Transformation that removes function parameters that are used only in recursive function calls
+ * Handle C file pointers as part of the runtime
+ * Optimisation: Replace Enum like tags with Integers in internal results
+ * Optimisation: Replace Default alternative for tags based on the type environment
+ * Handle C string
+ * Handle Foreign types for idris
+ * Implement StringBuffer in idris runtime
+

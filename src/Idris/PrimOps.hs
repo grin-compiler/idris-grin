@@ -6,7 +6,79 @@ import Grin.TH
 import Grin.PrimOpsPrelude
 
 
-idrisPrimOps = withPrimPrelude [prog|
+idrisPrimOps = withPrimPrelude [progConst|
+  ffi effectful
+    _prim_int_print     :: T_Int64 -> T_Unit
+    _prim_usleep        :: T_Int64 -> T_Unit
+    _prim_string_print  :: T_String -> T_Unit
+    _prim_read_string   :: T_String
+    _prim_error         :: T_String -> T_Unit
+    _prim_ffi_file_eof  :: T_Int64 -> T_Int64
+    _prim_time          :: T_Int64
+
+  -- Everything that handles Strings are FFI implemented now.
+  ffi pure
+    -- String
+    _prim_string_concat  :: T_String -> T_String -> T_String
+    _prim_string_reverse :: T_String -> T_String
+    _prim_string_lt      :: T_String -> T_String -> T_Int64
+    _prim_string_eq      :: T_String -> T_String -> T_Int64
+    _prim_string_head    :: T_String -> T_Int64 -- TODO: Change to Char
+    _prim_string_tail    :: T_String -> T_String
+    _prim_string_cons    :: T_Int64  -> T_String -> T_String
+    _prim_string_len     :: T_String -> T_Int64
+
+  ffi pure
+    -- Conversion
+    _prim_int_str      :: T_Int64 -> T_String
+    _prim_str_int      :: T_String -> T_Int64
+    _prim_int_float    :: T_Int64 -> T_Float
+    _prim_float_string :: T_Float -> T_String
+    _prim_char_int     :: T_Char  -> T_Int64
+
+  primop pure
+    -- Int
+    _prim_int_shr   :: T_Int64 -> T_Int64 -- TODO: Remove?
+    _prim_int_add   :: T_Int64 -> T_Int64 -> T_Int64
+    _prim_int_sub   :: T_Int64 -> T_Int64 -> T_Int64
+    _prim_int_mul   :: T_Int64 -> T_Int64 -> T_Int64
+    _prim_int_div   :: T_Int64 -> T_Int64 -> T_Int64
+    _prim_int_ashr  :: T_Int64 -> T_Int64 -> T_Int64
+    _prim_int_eq    :: T_Int64 -> T_Int64 -> T_Bool
+    _prim_int_ne    :: T_Int64 -> T_Int64 -> T_Bool
+    _prim_int_gt    :: T_Int64 -> T_Int64 -> T_Bool
+    _prim_int_ge    :: T_Int64 -> T_Int64 -> T_Bool
+    _prim_int_lt    :: T_Int64 -> T_Int64 -> T_Bool
+    _prim_int_le    :: T_Int64 -> T_Int64 -> T_Bool
+
+    -- Word
+    _prim_word_add  :: T_Word64 -> T_Word64 -> T_Word64
+    _prim_word_sub  :: T_Word64 -> T_Word64 -> T_Word64
+    _prim_word_mul  :: T_Word64 -> T_Word64 -> T_Word64
+    _prim_word_div  :: T_Word64 -> T_Word64 -> T_Word64
+    _prim_word_eq   :: T_Word64 -> T_Word64 -> T_Bool
+    _prim_word_ne   :: T_Word64 -> T_Word64 -> T_Bool
+    _prim_word_gt   :: T_Word64 -> T_Word64 -> T_Bool
+    _prim_word_ge   :: T_Word64 -> T_Word64 -> T_Bool
+    _prim_word_lt   :: T_Word64 -> T_Word64 -> T_Bool
+    _prim_word_le   :: T_Word64 -> T_Word64 -> T_Bool
+
+    -- Float
+    _prim_float_add :: T_Float -> T_Float -> T_Float
+    _prim_float_sub :: T_Float -> T_Float -> T_Float
+    _prim_float_mul :: T_Float -> T_Float -> T_Float
+    _prim_float_div :: T_Float -> T_Float -> T_Float
+    _prim_float_eq  :: T_Float -> T_Float -> T_Bool
+    _prim_float_ne  :: T_Float -> T_Float -> T_Bool
+    _prim_float_gt  :: T_Float -> T_Float -> T_Bool
+    _prim_float_ge  :: T_Float -> T_Float -> T_Bool
+    _prim_float_lt  :: T_Float -> T_Float -> T_Bool
+    _prim_float_le  :: T_Float -> T_Float -> T_Bool
+
+    -- Bool
+    _prim_bool_eq   :: T_Bool -> T_Bool -> T_Bool
+    _prim_bool_ne   :: T_Bool -> T_Bool -> T_Bool
+
   idris_int_eq idris_int_eq0 idris_int_eq1 =
     (CGrInt idris_int_eq0_1) <- fetch idris_int_eq0
     (CGrInt idris_int_eq1_1) <- fetch idris_int_eq1
@@ -224,8 +296,59 @@ idrisPrimOps = withPrimPrelude [prog|
     _prim_usleep idris_usleep1_0
     pure () -- Maybe it needs another void like type?
 
+  idris_ltrunc idris_ltrunc1 =
+    (CGrInt idris_ltrunc1_0) <- fetch idris_ltrunc1
+    pure (CGrInt idris_ltrunc1_0)
+
   idris_error idris_error1 =
     _prim_error idris_error1
+
+  idris_time =
+    idris_time1 <- _prim_time
+    pure (CGrInt idris_time1)
+
+  idris_fileSize idris_fileSize1 =
+    idris_fileSize2 <- pure 1024 -- TODO: Handle C file pointers
+    pure (CGrInt idris_fileSize2)
+
+  idris_fileOpen idris_fileOpen1 idris_fileOpen2 =
+    idris_fileOpen3 <- pure 42 -- TODO: File handler converted to (Void *) ptr
+    pure (CGrInt idris_fileOpen3)
+
+  idris_fileError idris_fileError1 =
+    idris_fileError2 <- pure 0 -- TODO: Call ferror
+    pure (CGrInt idris_fileError2)
+
+  idris_fileClose idris_fileClose1 =
+    idris_fileClose2 <- pure 0 -- TODO: Call fclose
+    pure (CGrVoid)
+
+  idris_addToString idris_addToString1 idris_addToString2 =
+    (CGrPtr idris_addToString2_0) <- fetch idris_addToString2
+    (CGrString idris_addToString1_0) <- fetch idris_addToString1 -- TODO: add C String to non-String
+    pure (CGrVoid)
+
+  idris_mkFileError idris_mkFileError0 =
+    pure (CGrFileError) -- TODO: Turns the errno into a FileError constructor from the Prelude.File
+
+  idris_getString idris_getString1 idris_getString2 =
+    idris_getString3 <- pure #"TODO" -- TODO: Handle StringBuffer
+    pure (CGrString idris_getString3)
+
+  idris_makeStringBuffer idris_makeStringBuffer1 =
+    -- TODO: Create StringBuffer
+    -- TODO: Handle CPtr
+    idris_makeStringBuffer2 <- pure 42
+    pure (CGrPtr idris_makeStringBuffer2)
+
+  isNull isNull1 =
+    -- TODO: Implement isNull check
+    (CGrPtr isNull1_0) <- fetch isNull1
+    isNull2 <- pure 0
+    pure (CGrInt isNull2)
+
+  idris_errno =
+    pure (CErrorNo)
 
   prim__stdin =
     pure (CGrInt 0)
@@ -240,4 +363,3 @@ idrisPrimOps = withPrimPrelude [prog|
     r <- "idr_{runMain_0}"
     pure ()
 |]
-

@@ -27,6 +27,7 @@ import Data.Char (isDigit)
 import Data.List (isSuffixOf)
 import qualified Data.Map as Map
 import Data.Time.Clock
+import System.FilePath
 
 
 
@@ -56,18 +57,31 @@ idrisWithIncludeDir c t fp = IdrisCodeGen fp Nothing c t True
 idrisWithStdin :: CompileMode -> Int -> String -> String -> IdrisCodeGen
 idrisWithStdin c t fp inp = IdrisCodeGen fp (Just inp) c t False
 
+testBinaryName :: IdrisCodeGen -> String
+testBinaryName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".bin"
 
+testGrinName :: IdrisCodeGen -> String
+testGrinName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".grin"
+
+testGrinBinaryName :: IdrisCodeGen -> String
+testGrinBinaryName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".grin.bin"
+
+-- TODO: Generate the test binary name from the idr file
+-- TODO: Improve readability
 instance Example IdrisCodeGen where
   type Arg IdrisCodeGen = ()
-  evaluateExample (IdrisCodeGen{..}) params actionWith progressCallback = do
+  evaluateExample icg@(IdrisCodeGen{..}) params actionWith progressCallback = do
     result <- newIORef $ Result "" Success
     actionWith $ \() -> do
       doesDirectoryExist ".idris" >>= flip when (removeDirectoryRecursive ".idris")
       let steps = 12
       progressCallback (0, steps)
-      doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
-      doesFileExist "test.grin" >>= flip when (removeFile "test.grin")
-      doesFileExist "test.grin.bin" >>= flip when (removeFile "test.grin.bin")
+      let testBin = testBinaryName icg
+      let testGrin = testGrinName icg
+      let testGrinBin = testGrinBinaryName icg
+      doesFileExist testBin >>= flip when (removeFile testBin)
+      doesFileExist testGrin >>= flip when (removeFile testGrin)
+      doesFileExist testGrinBin >>= flip when (removeFile testGrinBin)
       progressCallback (2, steps)
       let stdInCreate = maybe NoStream (const CreatePipe) input
       let enterInput mh = fromMaybe (pure ()) $ do -- Maybe
@@ -79,17 +93,20 @@ instance Example IdrisCodeGen where
                               hFlushAll h
                               hClose h
       let includeDir = if withInclude then "-i " ++ takeDirectory source else ""
-      let idris = (shell (printf "stack exec idris -- %s %s -o test.bin" source includeDir))
+      let idris = (shell (printf "stack exec idris -- %s %s -o %s" source includeDir testBin))
                   { std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe } -- TODO: Log activity
-      let runTest = (shell "./test.bin")
+      let runTest = (shell $ "./" ++ testBin)
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
-      let runGrinTest = (shell "./test.grin.bin")
+      let runGrinTest = (shell $ "./" ++ testGrinBin)
                         { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
       let idrisGrinCmd = case compiled of
-            OptimisedEval    -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed --cg-opt --eval"
-            NonOptimisedEval -> "stack exec idris -- %s %s --codegen grin -o test.grin --cg-opt --grin --cg-opt --O0 --cg-opt --quiet --cg-opt --eval"
-            Compiled         -> "stack exec idris -- %s %s --codegen grin -o test.grin.bin --cg-opt --quiet"
-      let idrisGrin = (shell (printf idrisGrinCmd source includeDir))
+            OptimisedEval    -> "stack exec idris -- %s %s --codegen grin -o %s --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed --cg-opt --eval"
+            NonOptimisedEval -> "stack exec idris -- %s %s --codegen grin -o %s --cg-opt --grin --cg-opt --O0 --cg-opt --quiet --cg-opt --eval"
+            Compiled         -> "stack exec idris -- %s %s --codegen grin -o %s --cg-opt --quiet"
+      let idrisGrinOutputFile = case compiled of
+            Compiled -> testGrinBin
+            _        -> testGrin
+      let idrisGrin = (shell (printf idrisGrinCmd source includeDir idrisGrinOutputFile))
                       { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
 
       logs <- newIORef []
@@ -115,9 +132,9 @@ instance Example IdrisCodeGen where
         (mIn, Just out, Just err, runTestPh) <- lift $ createProcess_ "Test" runTest
         lift $ progressCallback (7, steps)
         enterInput mIn
-        runTestExitCode <- lift $ waitForProcess runTestPh
+        runTestExitCode <- lift $ timeout (timeoutInSecs * 1000) runTestPh
         lift $ progressCallback (8, steps)
-        lift $ doesFileExist "test.bin" >>= flip when (removeFile "test.bin")
+        lift $ doesFileExist testBin >>= flip when (removeFile testBin)
         testOut <- lift $ hGetContents out
         lift $ addLogLines ["Run idris generated binary"]
         lift $ addLogLines $ lines testOut
@@ -140,9 +157,9 @@ instance Example IdrisCodeGen where
             lift $ progressCallback (11, steps)
             (mIn, Just out, Just err, runGrinTestPh) <- lift $ createProcess_ "Test grin.bin" runGrinTest
             enterInput mIn
-            runGrinTestExitCode <- lift $ waitForProcess runGrinTestPh
+            runGrinTestExitCode <- lift $ timeout (timeoutInSecs * 1000) runGrinTestPh
 
-            lift $ doesFileExist "test.bin.grin" >>= flip when (removeFile "test.bin.grin")
+            lift $ doesFileExist testGrinBin >>= flip when (removeFile testGrinBin)
             grinOut <- lift $ hGetContents out
             lift $ addLogLines ["Compile and run grin."]
             lift $ addLogLines $ lines grinOut
@@ -159,7 +176,7 @@ instance Example IdrisCodeGen where
             enterInput mIn
             idrisGrinExitCode <- lift $ timeout (timeoutInSecs * 1000) idrisGrinPh
             lift $ progressCallback (11, steps)
-            lift $ doesFileExist "test.grin" >>= flip when (removeFile "test.grin")
+            lift $ doesFileExist testGrin >>= flip when (removeFile testGrin)
             grinOut <- lift $ hGetContents out
             lift $ addLogLines ["Compile and run grin."]
             lift $ addLogLines $ lines grinOut
