@@ -19,8 +19,8 @@ import Control.Exception
 import IRTS.CodegenCommon
 import IRTS.Simplified as Idris
 import IRTS.Lang as Idris
-import Data.Functor.Foldable
 import qualified Idris.Core.TT as Idris
+import Data.Functor.Foldable
 import Transformations.StaticSingleAssignment
 import Transformations.BindNormalisation
 import Text.PrettyPrint.ANSI.Leijen (ondullblack)
@@ -106,46 +106,59 @@ function (SFun fname params _int body) =
     (map (\(p, i) -> packName $ unpackName (name fname) ++ show i) (params `zip` [0..]))
     (sexp (name fname) body)
 
-loc :: Name -> LVar -> Name
-loc fname (Idris.Loc i) = packName $ unpackName fname ++ show i
+loc :: Name -> LVar -> Val
+loc fname (Idris.Loc i) = Var $ packName $ unpackName fname ++ show i
+
+locVal :: Name -> LVar -> Val
+locVal fname (Idris.Loc i) = Var $ packName $ unpackName fname ++ show i ++ "_val"
+
+lvar :: Name -> LVar -> Val
+lvar fname = Var . \case
+  Idris.Loc loc -> packName $ unpackName fname ++ show loc
+  Glob nm       -> name nm
+
+lvarVal :: Name -> LVar -> Val
+lvarVal fname = Var . \case
+  Idris.Loc loc -> packName $ unpackName fname ++ show loc ++ "_val"
+  Glob nm       -> packName $ unpackName (name nm) ++ "_val"
 
 sexp :: Name -> SExp -> Exp
 sexp fname = \case
 
   SLet loc0@(Idris.Loc i) v sc ->
-    EBind (SBlock (sexp fname v)) (Var $ packName $ unpackName (loc fname loc0) ++ "_val") $ -- calculate
-    EBind (SStore (Var  $ packName $ unpackName (loc fname loc0) ++ "_val")) (Var (loc fname loc0)) $ -- store
+    EBind (SBlock (sexp fname v)) (varV loc0) $ -- calculate
+    EBind (SStore (varV loc0)) (var loc0)     $ -- store
     (sexp fname sc)
 
-  Idris.SApp bool nm lvars -> Grin.SApp (name nm) (map (Var . lvar fname) lvars)
+  Idris.SApp bool nm lvars -> Grin.SApp (name nm) (map var lvars)
 
   -- Update is used in eval like functions, where the computed value must be the value
   -- of the expression
   Idris.SUpdate loc0 sexp0 ->
-    EBind (SBlock (sexp fname sexp0)) (Var $ packName $ unpackName (loc fname loc0) ++ "_val") $
-    EBind (Grin.SUpdate (loc fname loc0) (Var $ packName $ unpackName (loc fname loc0) ++ "_val")) Unit $
-    SReturn (Var $ packName $ unpackName (loc fname loc0) ++ "_val")
+    EBind (SBlock (sexp fname sexp0)) (varV loc0) $
+    EBind (Grin.SUpdate (variableName $ var loc0) (varV loc0)) Unit $
+    SReturn (varV loc0)
 
   SCase caseType lvar0 salts ->
-    EBind (SFetch (lvar fname lvar0)) (Var (packName $ (unpackName $ lvar fname lvar0) ++ "_val")) $
-    ECase (Var $ packName $ unpackName (lvar fname lvar0) ++ "_val") (alts fname salts)
+    EBind (SFetch $ variableName $ var lvar0) (varV lvar0) $
+    ECase (varV lvar0) (alts fname salts)
   SChkCase lvar0 salts ->
-    EBind (SFetch $ packName $ (unpackName $ lvar fname lvar0)) (Var $ packName $ unpackName (lvar fname lvar0) ++ "_val") $
-    ECase (Var $ packName $ unpackName (lvar fname lvar0) ++ "_val") (alts fname salts)
+    EBind (SFetch $ variableName $ var lvar0) (varV lvar0) $
+    ECase (varV lvar0) (alts fname salts)
 
   --SProj lvar0 int -> SFetchI (lvar fname lvar0) (Just int)
 
   -- All the primitive operations must be part of the runtime, and
   -- they must fetch values, as wrappers
-  SOp f lvars -> primFn f (map (Var . lvar fname) lvars)
+  SOp f lvars -> primFn f (map var lvars)
 
   -- Constanst contains only tags and variables, which are locations, thus
   -- it can be the returned as the last
   scon@(SCon maybeLVar int name lvars) -> SReturn $ val fname scon
   sconst@(SConst cnst) -> SReturn $ val fname sconst
 
-  SV lvar0@(Idris.Loc i)  -> SFetch (loc fname lvar0)
-  SV lvar0@(Idris.Glob n) -> traceShow "Global call" $ Grin.SApp (lvar fname lvar0) []
+  SV lvar0@(Idris.Loc i)  -> SFetch $ variableName $ var lvar0
+  SV lvar0@(Idris.Glob n) -> traceShow "Global call" $ Grin.SApp (variableName $ var lvar0) []
 
   -- SForeign fdesc1 fdesc2 fdescLVars -> undefined
   -- TODO: Foreign function calls must handle pointers or they must be wrapped.
@@ -154,22 +167,27 @@ sexp fname = \case
   SNothing -> SReturn (ConstTagNode (Tag C "Erased") [])
   SError msg -> Grin.SApp "idris_error" [Lit $ LString $ Text.pack msg]
   e -> error $ printf "unsupported %s" (show e)
+  where
+    var  = lvar fname
+    varV = lvarVal fname
 
+variableName :: Val -> Name
+variableName (Var n) = n
 
-foreignFun fname _ (FStr "idris_int_print") [(_, arg)] = Grin.SApp "idris_int_print" [Var . lvar fname $ arg]
-foreignFun fname _ (FStr "fileEOF") [(_,lvar0)] = Grin.SApp "idris_ffi_file_eof" [Var . lvar fname $ lvar0]
-foreignFun fname _ (FStr "idris_usleep") [(_,lvar0)] = Grin.SApp "idris_usleep" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_int_print") [(_, arg)] = Grin.SApp "idris_int_print" [lvar fname $ arg]
+foreignFun fname _ (FStr "fileEOF") [(_,lvar0)] = Grin.SApp "idris_ffi_file_eof" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_usleep") [(_,lvar0)] = Grin.SApp "idris_usleep" [lvar fname $ lvar0]
 foreignFun fname _ (FStr "idris_time") [] = Grin.SApp "idris_time" []
 foreignFun fname _ (FStr "idris_errno") [] = Grin.SApp "idris_errno" []
-foreignFun fname _ (FStr "fileSize") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileSize" [Var . lvar fname $ lvar0]
-foreignFun fname _ (FStr "fileOpen") [(_FCon_C_Str0, lvar0), (_FCon_C_Str1, lvar1)] = Grin.SApp "idris_fileOpen" [Var . lvar fname $ lvar0, Var . lvar fname $ lvar1]
-foreignFun fname _ (FStr "fileError") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileError" [Var . lvar fname $ lvar0]
-foreignFun fname _ (FStr "fileClose") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileClose" [Var . lvar fname $ lvar0]
-foreignFun fname _ (FStr "idris_addToString") [(_FCon_C_Ptr, lvar0), (_FCon_C_Str, lvar1)] = Grin.SApp "idris_addToString" [Var . lvar fname $ lvar0, Var . lvar fname $ lvar1]
-foreignFun fname _ (FStr "idris_mkFileError") [(_FCon_C_Ptr_VM, lvar0)] = Grin.SApp "idris_mkFileError" [Var . lvar fname $ lvar0]
-foreignFun fname _ (FStr "idris_getString") [(_FCon_C_Ptr0VM, lvar0), (_FCon_C_Ptr1StrBuffer, lvar1)] = Grin.SApp "idris_getString" [Var . lvar fname $ lvar0, Var . lvar fname $ lvar1]
-foreignFun fname _ (FStr "idris_makeStringBuffer") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative,lvar0)] = Grin.SApp "idris_makeStringBuffer" [Var . lvar fname $ lvar0]
-foreignFun fname _ (FStr "isNull") [(_FCon_C_Ptr,lvar0)] = Grin.SApp "isNull" [Var . lvar fname $ lvar0]
+foreignFun fname _ (FStr "fileSize") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileSize" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "fileOpen") [(_FCon_C_Str0, lvar0), (_FCon_C_Str1, lvar1)] = Grin.SApp "idris_fileOpen" $ map (lvar fname) [lvar0, lvar1]
+foreignFun fname _ (FStr "fileError") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileError" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "fileClose") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileClose" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_addToString") [(_FCon_C_Ptr, lvar0), (_FCon_C_Str, lvar1)] = Grin.SApp "idris_addToString" $ map (lvar fname) [lvar0, lvar1]
+foreignFun fname _ (FStr "idris_mkFileError") [(_FCon_C_Ptr_VM, lvar0)] = Grin.SApp "idris_mkFileError" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_getString") [(_FCon_C_Ptr0VM, lvar0), (_FCon_C_Ptr1StrBuffer, lvar1)] = Grin.SApp "idris_getString" $ map (lvar fname) [lvar0, lvar1]
+foreignFun fname _ (FStr "idris_makeStringBuffer") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative,lvar0)] = Grin.SApp "idris_makeStringBuffer" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "isNull") [(_FCon_C_Ptr,lvar0)] = Grin.SApp "isNull" [lvar fname $ lvar0]
 foreignFun fname _ rest args = error $ show rest ++ " " ++ show args
 
 alts :: Name -> [SAlt] -> [Exp]
@@ -322,15 +340,10 @@ primFn f ps = case f of
 -- TODO: Check if the Val is reffered and fetched
 val :: Name -> SExp -> Val
 val fname = \case
-  SV lvar0 -> Var $ lvar fname lvar0
+  SV lvar0 -> lvar fname lvar0
   SConst c -> literal c
-  SCon _ int nm lvars -> ConstTagNode (Tag C (name nm)) (map (Var . lvar fname) lvars)
+  SCon _ int nm lvars -> ConstTagNode (Tag C (name nm)) (map (lvar fname) lvars)
   rest -> error $ "unsupported val:" ++ show rest
-
-lvar :: Name -> LVar -> Name
-lvar fname = \case
-  Idris.Loc loc -> packName $ unpackName fname ++ show loc
-  Glob nm       -> name nm
 
 name :: Idris.Name -> Name
 name n = packName $ "idr_" ++ (Idris.showCG n)

@@ -111,3 +111,10 @@ spec = describe "Idris and Grin matches for:" $ forM_ modes $ \mode -> do
       unlines [ "1", "2", "3", "4", "5" ]
     it "TDD 11 - 03 Termination" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_TerminationTest.idr" $
       unlines [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
+    it "TDD 12 - 01 TreeLabel"      $ idris mode 60 "test/tdd/chapter12/01_TreeLabel.idr"
+    it "TDD 12 - 02 State"          $ idris mode 60 "test/tdd/chapter12/02_State.idr"
+    it "TDD 12 - 03 TreeLabelWith"  $ idris mode 60 "test/tdd/chapter12/03_TreeLabelWith.idr"
+    it "TDD 12 - 04 Exercise"       $ idris mode 60 "test/tdd/chapter12/04_Exercise01.idr"
+    it "TDD 12 - 05 TreeLabelType"  $ idris mode 60 "test/tdd/chapter12/05_TreeLabelType.idr"
+    it "TDD 12 - 06 ArithState"     $ idrisWithStdin mode 60 "test/tdd/chapter12/06_ArithState.idr" $
+      unlines  [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "quit" ]
