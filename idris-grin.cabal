@@ -57,9 +57,6 @@ executable idris-codegen-grin
   if os(freebsd)
      cpp-options:   -DFREEBSD
      build-depends: unix < 2.8
-  if os(dragonfly)
-     cpp-options:   -DDRAGONFLY
-     build-depends: unix < 2.8
   if os(darwin)
      cpp-options:   -DMACOSX
      build-depends: unix < 2.8
@@ -87,6 +84,7 @@ executable idris-codegen-test
                 , hspec-discover
                 , process
                 , time
+                , neat-interpolation
   other-modules: IdrisSpec
                , Test.Hspec.IdrisFrontend
   default-language:    Haskell2010

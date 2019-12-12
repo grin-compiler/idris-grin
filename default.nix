@@ -10,4 +10,16 @@ let
 in
   pkgs.haskell-nix.stackProject {
     src = pkgs.haskell-nix.haskellLib.cleanGit { src = ./.; };
+    pkg-def-extras = [
+      (hackage: {
+        packages = {
+          "system-posix-redirect" = hackage.system-posix-redirect."1.1.0.1".revisions.default;
+        };
+      })
+    ];
+    modules = [
+      {
+        packages.idris.configureFlags = [ "-fexeconly" ];
+      }
+    ];
   }
