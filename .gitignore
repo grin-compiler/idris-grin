@@ -1,1 +1,3 @@
 *.ibc
+.stack-work/
+.idris/
