@@ -17,8 +17,8 @@ extra-deps:
   - set-extra-1.4.1
   - llvm-hs-pretty-0.6.1.0
 
-  - github: grin-tech/grin
-    commit: ed7bacf715af709ed15e0f285a7fdc6d0263c8ba
+  - github: luc-tielen/grin
+    commit: a730ec167cc70487b5027d62ec80b708570ad4f8
     subdirs:
       - grin
 
