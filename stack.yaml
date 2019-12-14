@@ -18,7 +18,7 @@ extra-deps:
   - llvm-hs-pretty-0.6.1.0
 
   - github: luc-tielen/grin
-    commit: a730ec167cc70487b5027d62ec80b708570ad4f8
+    commit: 90a70938b853e5e1afae3dea9cae8833beaded87
     subdirs:
       - grin
 
