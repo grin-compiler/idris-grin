@@ -302,6 +302,7 @@ idrisPrimOps = withPrimPrelude [progConst|
 
   idris_error idris_error1 =
     _prim_error idris_error1
+    pure (CGrError idris_error1)
 
   idris_time =
     idris_time1 <- _prim_time
