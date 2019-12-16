@@ -17,7 +17,7 @@ spec = do
 
   modes <- runIO $ do
     env <- lookupEnv "IDRIS_GRIN_CI"
-    pure $ maybe [NonOptimisedEval, OptimisedEval, Compiled] (const [Compiled]) env
+    pure $ maybe [NonOptimisedEval, OptimisedEval, Compiled] (const [OptimisedEval]) env
 
   describe "Idris and Grin matches for:" $ forM_ modes $ \mode -> describe (show mode) $ do
     it "TDD 01 - 01 Hello World" $ timed $ idris mode 60 "test/tdd/chapter01/01_HelloWorld.idr"
