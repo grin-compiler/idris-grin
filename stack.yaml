@@ -1,4 +1,4 @@
-resolver: nightly-2018-11-07
+resolver: lts-14.16
 
 # due to functor-infix
 allow-newer: true
@@ -11,15 +11,14 @@ packages:
 extra-deps:
   - monad-gen-0.3.0.1
   - functor-infix-0.0.5
-  - idris-1.3.1
+  - idris-1.3.2
   - cheapskate-0.1.1.1
-  - megaparsec-6.5.0
-  - neat-interpolation-0.3.2.2
   - set-extra-1.4.1
   - llvm-hs-pretty-0.6.1.0
 
-  - github: grin-tech/grin
-    commit: ed7bacf715af709ed15e0f285a7fdc6d0263c8ba
+  # TODO point back grin-compiler/grin once other PR is merged in
+  - github: luc-tielen/grin
+    commit: 9f5f165741f72ba58bd68ba3264fcd07105b6229
     subdirs:
       - grin
 
