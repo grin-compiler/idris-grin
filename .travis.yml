@@ -28,10 +28,12 @@ before_install:
   - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
   - export CC=/usr/bin/$GCC
   - export CXX=/usr/bin/$GXX
+  - export IDRIS_GRIN_CI=TRUE
 
 install:
   - stack update
   - travis_wait 120 stack --no-terminal --install-ghc test --only-dependencies
 
 script:
-  - stack install
+  - stack build
+  - travis_wait 120 stack exec idris-codegen-test
