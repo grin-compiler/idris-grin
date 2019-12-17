@@ -36,4 +36,4 @@ install:
 
 script:
   - stack build
-  - travis_wait 120 stack exec idris-codegen-test
+  - stack exec idris-codegen-test
