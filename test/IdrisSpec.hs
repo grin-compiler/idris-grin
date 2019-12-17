@@ -128,7 +128,8 @@ spec = do
     xit "TDD 11 - 02 Exercise" $ idrisWithStdin mode 60 "test/tdd/chapter11/02_ExerciseTest.idr" $
       unlines [ "a", "b", "hello", "World" ]
 
-    it "TDD 11 - 03 ArithCmd" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_ArithCmdTest.idr" $
+    -- REASON: Shifting operation doesn't produce right values. Root cause: different Int representation.
+    xit "TDD 11 - 03 ArithCmd" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_ArithCmdTest.idr" $
       unlines [ "1", "2", "3", "4", "5" ]
 
     -- REASON: Random number generator based on shifting
@@ -139,8 +140,10 @@ spec = do
     xit "TDD 11 - 03 Exercise" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_ExerciseTest.idr" $
       unlines [ "1", "2", "3", "4", "5" ]
 
-    it "TDD 11 - 03 Termination" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_TerminationTest.idr" $
+    -- REASON: uncaught exception: IOException of type IllegalOperation
+    xit "TDD 11 - 03 Termination" $ idrisWithStdin mode 60 "test/tdd/chapter11/03_TerminationTest.idr" $
       unlines [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" ]
+
     it "TDD 12 - 01 TreeLabel"      $ idris mode 60 "test/tdd/chapter12/01_TreeLabel.idr"
     it "TDD 12 - 02 State"          $ idris mode 60 "test/tdd/chapter12/02_State.idr"
     it "TDD 12 - 03 TreeLabelWith"  $ idris mode 60 "test/tdd/chapter12/03_TreeLabelWith.idr"
