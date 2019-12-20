@@ -87,6 +87,7 @@ executable idris-codegen-test
                 , hspec-discover
                 , process
                 , time
+                , deepseq
   other-modules: IdrisSpec
                , Test.Hspec.IdrisFrontend
   default-language:    Haskell2010

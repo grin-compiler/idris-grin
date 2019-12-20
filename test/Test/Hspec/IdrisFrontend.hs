@@ -29,7 +29,9 @@ import qualified Data.Map as Map
 import Data.Time.Clock
 import System.FilePath
 
-
+import Control.Exception
+import Control.DeepSeq
+import Control.Concurrent (threadDelay)
 
 
 data CompileMode
@@ -66,23 +68,39 @@ testGrinName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".grin"
 testGrinBinaryName :: IdrisCodeGen -> String
 testGrinBinaryName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".grin.bin"
 
+tryExcept :: IO a -> ExceptT ResultStatus IO a
+tryExcept io = (lift (try io)) >>= either (throwE . Failure Nothing . Reason . show @SomeException) pure
+
 -- TODO: Generate the test binary name from the idr file
 -- TODO: Improve readability
 instance Example IdrisCodeGen where
   type Arg IdrisCodeGen = ()
   evaluateExample icg@(IdrisCodeGen{..}) params actionWith progressCallback = do
+    progressRef <- newIORef 0
+    let progress = do
+          p <- readIORef progressRef
+          progressCallback (p,p)
+          writeIORef progressRef (p + 1)
+    let waitProcess 0 proc = do
+          terminateProcess proc
+          waitForProcess proc
+        waitProcess n proc = do
+          progress
+          mCode <- getProcessExitCode proc
+          threadDelay 1000000 -- microsec == 1sec
+          maybe (waitProcess (n-1) proc) pure mCode
     result <- newIORef $ Result "" Success
     actionWith $ \() -> do
       doesDirectoryExist ".idris" >>= flip when (removeDirectoryRecursive ".idris")
       let steps = 12
-      progressCallback (0, steps)
+      progress
       let testBin = testBinaryName icg
       let testGrin = testGrinName icg
       let testGrinBin = testGrinBinaryName icg
       doesFileExist testBin >>= flip when (removeFile testBin)
       doesFileExist testGrin >>= flip when (removeFile testGrin)
       doesFileExist testGrinBin >>= flip when (removeFile testGrinBin)
-      progressCallback (2, steps)
+      progress
       let stdInCreate = maybe NoStream (const CreatePipe) input
       let enterInput mh = fromMaybe (pure ()) $ do -- Maybe
                             h <- mh
@@ -91,7 +109,7 @@ instance Example IdrisCodeGen where
                               hPutStr h i
                               -- hPutChar h '\x04'
                               hFlushAll h
-                              hClose h
+                              -- hClose h
       let includeDir = if withInclude then "-i " ++ takeDirectory source else ""
       let idris = (shell (printf "stack exec idris -- %s %s -o %s" source includeDir testBin))
                   { std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe } -- TODO: Log activity
@@ -110,98 +128,99 @@ instance Example IdrisCodeGen where
                       { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
 
       logs <- newIORef []
-      let addLogLines lines = modifyIORef logs (++lines)
+      let addLogLines lines = modifyIORef logs (force . (++ lines))
       let readFinalLogs = fmap unlines $ readIORef logs
       let attachLogs r = do
             logLines <- readFinalLogs
             pure $ (either (Result logLines) (const (Result [] Success))) r
 
       res <- (attachLogs =<<) $ runExceptT $ do
-        lift $ progressCallback (3, steps)
+        lift $ progress
         (_in, Just out, Just err, idrisPh) <- lift $ createProcess_ "Idris" idris
-        lift $ progressCallback (4, steps)
-        idrisExitCode <- lift $ waitForProcess idrisPh
-        lift $ progressCallback (5, steps)
-        lift $ addLogLines ["Compile idris"]
-        lift (hGetContents out >>= (addLogLines . lines))
-        lift (hGetContents err >>= (addLogLines . lines))
+        lift $ progress
+        idrisExitCode <- lift $ waitProcess timeoutInSecs idrisPh
+        lift $ progress
+        lift $ addLogLines ["Compile idris", "============="]
+        tryExcept (hGetContents out >>= (addLogLines . lines . force))
+        tryExcept (hGetContents err >>= (addLogLines . lines . force))
         when (idrisExitCode /= ExitSuccess) $ do
-          lift $ hClose out
+          -- lift $ hClose out
           throwE $ Failure Nothing $ Reason $ "Idris process exited with: " ++ show idrisExitCode
-        lift $ progressCallback (6, steps)
+        lift $ progress
         (mIn, Just out, Just err, runTestPh) <- lift $ createProcess_ "Test" runTest
-        lift $ progressCallback (7, steps)
+        lift $ progress
         enterInput mIn
-        runTestExitCode <- lift $ timeout (timeoutInSecs * 1000) runTestPh
-        lift $ progressCallback (8, steps)
+        runTestExitCode <- lift $ waitProcess timeoutInSecs runTestPh
+        lift $ progress
         lift $ doesFileExist testBin >>= flip when (removeFile testBin)
-        testOut <- lift $ hGetContents out
-        lift $ addLogLines ["Run idris generated binary"]
+        testOut <- tryExcept $ fmap force $ hGetContents out
+        lift $ addLogLines ["Run idris generated binary", "=========================="]
         lift $ addLogLines $ lines testOut
-        lift $ (hGetContents err >>= (addLogLines . lines))
+        tryExcept (hGetContents err >>= (addLogLines . lines . force))
         when (runTestExitCode /= ExitSuccess) $ do
-          lift $ hClose out
+          -- lift $ hClose out
           throwE $ Failure Nothing $ Reason $ "Test process exited with: " ++ show runTestExitCode
 
         grinOut <- case compiled of
           Compiled -> do
-            lift $ progressCallback (9, steps)
+            lift $ progress
             (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
-            compOut <- lift $ hGetContents out
-            compErr <- lift $ hGetContents err
+            lift $ progress
+            idrisGrinExitCode <- lift $ waitProcess timeoutInSecs idrisGrinPh
+            compOut <- tryExcept $ fmap force $ hGetContents out
             lift $ addLogLines $ lines compOut
-            lift $ addLogLines $ lines compErr
+            when (idrisGrinExitCode /= ExitSuccess) $ do
+              compErr <- tryExcept $ fmap force $ hGetContents err
+              lift $ addLogLines $ lines compErr
 
-            lift $ progressCallback (10, steps)
-            idrisGrinExitCode <- lift $ waitForProcess idrisGrinPh
-            lift $ progressCallback (11, steps)
+            lift $ progress
             (mIn, Just out, Just err, runGrinTestPh) <- lift $ createProcess_ "Test grin.bin" runGrinTest
             enterInput mIn
-            runGrinTestExitCode <- lift $ timeout (timeoutInSecs * 1000) runGrinTestPh
+            runGrinTestExitCode <- lift $ waitProcess timeoutInSecs runGrinTestPh
 
             lift $ doesFileExist testGrinBin >>= flip when (removeFile testGrinBin)
-            grinOut <- lift $ hGetContents out
-            lift $ addLogLines ["Compile and run grin."]
+            grinOut <- tryExcept $ fmap force $ hGetContents out
+            lift $ addLogLines ["Compile and run grin", "===================="]
             lift $ addLogLines $ lines grinOut
-            lift (hGetContents err >>= (addLogLines . lines))
+            tryExcept (hGetContents err >>= (addLogLines . lines . force))
             when (runGrinTestExitCode /= ExitSuccess) $ do
               throwE $ Failure Nothing $ Reason $ "Compiled Grin Test process exited with: " ++ show runGrinTestExitCode
 
             pure grinOut
 
           _ -> do
-            lift $ progressCallback (9, steps)
+            lift $ progress
             (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
-            lift $ progressCallback (10, steps)
+            lift $ progress
             enterInput mIn
-            idrisGrinExitCode <- lift $ timeout (timeoutInSecs * 1000) idrisGrinPh
-            lift $ progressCallback (11, steps)
+            idrisGrinExitCode <- lift $ waitProcess timeoutInSecs idrisGrinPh
+            lift $ progress
             lift $ doesFileExist testGrin >>= flip when (removeFile testGrin)
-            grinOut <- lift $ hGetContents out
-            lift $ addLogLines ["Compile and run grin."]
+            grinOut <- tryExcept $ fmap force $ hGetContents out
+            lift $ addLogLines ["Compile and run grin", "===================="]
             lift $ addLogLines $ lines grinOut
-            lift (hGetContents err >>= (addLogLines . lines))
+            tryExcept (hGetContents err >>= (addLogLines . lines . force))
             case idrisGrinExitCode of
               ExitSuccess       -> pure grinOut
               ExitFailure (-15) -> pure grinOut -- Timeout, killed, etc
               _ -> do
-                lift $ hClose out
+                -- lift $ hClose out
                 throwE $ Failure Nothing $ Reason $ "Idris-Grin process exited with: " ++ show idrisGrinExitCode
 
-        lift $ progressCallback (12, steps)
+        lift $ progress
         when (grinOut /= testOut) $
           case compiled of
             NonOptimisedEval -> throwE $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
             Compiled         -> throwE $ Failure Nothing $ ExpectedButGot Nothing testOut grinOut
-            OptimisedEval    -> bisect logs enterInput timeoutInSecs ".idris" stdInCreate testOut
+            OptimisedEval    -> bisect waitProcess logs enterInput timeoutInSecs ".idris" stdInCreate testOut
       writeIORef result res
     readIORef result
 
-bisect logs enterInput timeoutInSecs directory stdInCreate expectedOutput = do
+bisect waitProcess logs enterInput timeoutInSecs directory stdInCreate expectedOutput = do
   files <- fmap (filter isGrinFile) $ lift $ listDirectory directory
   let fileMap = createFileMap files
   let range = findRange fileMap
-  let addLogLines lines = modifyIORef logs (++lines)
+  let addLogLines lines = modifyIORef logs (force . (++ lines))
 
   let run idx = do
         let cmd = printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup idx fileMap)
@@ -209,9 +228,9 @@ bisect logs enterInput timeoutInSecs directory stdInCreate expectedOutput = do
         let runGrin = (shell cmd) { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
         (mIn, Just out, Just err, cmdPh) <- lift $ createProcess_ cmd runGrin
         enterInput mIn
-        cmdExitCode <- lift $ timeout (timeoutInSecs * 1000) cmdPh
-        output <- lift $ hGetContents out
-        errors <- lift $ hGetContents err
+        cmdExitCode <- lift $ waitProcess timeoutInSecs cmdPh
+        output <- tryExcept $ fmap force $ hGetContents out
+        errors <- tryExcept $ fmap force $ hGetContents err
         lift $ addLogLines $ lines output
         lift $ addLogLines $ lines errors
         case cmdExitCode of
@@ -252,16 +271,6 @@ bisect logs enterInput timeoutInSecs directory stdInCreate expectedOutput = do
       , let itr = read @Int (take noOfDigits name)
       ]
     findRange = (minimum &&& maximum) . Map.keys
-
-{- There is no garantee that the process will be killed. -}
-timeout :: Int -> ProcessHandle -> IO ExitCode
-timeout ms h | ms <= 0 = do
-  terminateProcess h
-  waitForProcess h
-timeout ms h = do
-  threadDelay (100 * 1000)
-  mec <- getProcessExitCode h
-  maybe (timeout (ms - 100) h) pure mec
 
 -- * Timed examples
 

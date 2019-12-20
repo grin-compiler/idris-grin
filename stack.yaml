@@ -16,7 +16,6 @@ extra-deps:
   - set-extra-1.4.1
   - llvm-hs-pretty-0.6.1.0
 
-  # TODO point back grin-compiler/grin once other PR is merged in
   - github: grin-compiler/grin
     commit: cefe5f2998cdd0df59ff03529f40f5aea84bec8e
     subdirs:
