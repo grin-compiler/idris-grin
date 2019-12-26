@@ -4,7 +4,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
-module Test.Hspec.IdrisFrontend where
+module Test.Hspec.IdrisGrinBackend where
 
 import Control.Arrow
 import Control.Concurrent (threadDelay)
@@ -42,31 +42,31 @@ data CompileMode
 
 data IdrisCodeGen
   = IdrisCodeGen
-    { source :: String
-    , input  :: Maybe String
-    , compiled :: CompileMode
+    { source        :: String
+    , input         :: Maybe String
+    , compiled      :: CompileMode
     , timeoutInSecs :: Int
-    , withInclude :: Bool
+    , withInclude   :: Bool
+    , package       :: Maybe String
     }
 
-
 idris :: CompileMode -> Int -> String -> IdrisCodeGen
-idris c t fp = IdrisCodeGen fp Nothing c t False
+idris c t fp = IdrisCodeGen fp Nothing c t False Nothing
 
 idrisWithIncludeDir :: CompileMode -> Int -> String -> IdrisCodeGen
-idrisWithIncludeDir c t fp = IdrisCodeGen fp Nothing c t True
+idrisWithIncludeDir c t fp = IdrisCodeGen fp Nothing c t True Nothing
 
 idrisWithStdin :: CompileMode -> Int -> String -> String -> IdrisCodeGen
-idrisWithStdin c t fp inp = IdrisCodeGen fp (Just inp) c t False
+idrisWithStdin c t fp inp = IdrisCodeGen fp (Just inp) c t False Nothing
 
 testBinaryName :: IdrisCodeGen -> String
-testBinaryName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".bin"
+testBinaryName icg = takeFileName (source icg)  ++ ".bin"
 
 testGrinName :: IdrisCodeGen -> String
-testGrinName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".grin"
+testGrinName icg = takeFileName (source icg)  ++ ".grin"
 
 testGrinBinaryName :: IdrisCodeGen -> String
-testGrinBinaryName (IdrisCodeGen s _ _ _ _) = takeFileName s ++ ".grin.bin"
+testGrinBinaryName icg = takeFileName (source icg) ++ ".grin.bin"
 
 tryExcept :: IO a -> ExceptT ResultStatus IO a
 tryExcept io = (lift (try io)) >>= either (throwE . Failure Nothing . Reason . show @SomeException) pure
@@ -111,20 +111,20 @@ instance Example IdrisCodeGen where
                               hFlushAll h
                               -- hClose h
       let includeDir = if withInclude then "-i " ++ takeDirectory source else ""
-      let idris = (shell (printf "stack exec idris -- %s %s -o %s" source includeDir testBin))
+      let idris = (shell (printf "stack exec idris -- %s %s -o %s %s" source includeDir testBin (maybe "" ("-p "++) package)))
                   { std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe } -- TODO: Log activity
       let runTest = (shell $ "./" ++ testBin)
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
       let runGrinTest = (shell $ "./" ++ testGrinBin)
                         { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
       let idrisGrinCmd = case compiled of
-            OptimisedEval    -> "stack exec idris -- %s %s --codegen grin -o %s --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed --cg-opt --eval"
-            NonOptimisedEval -> "stack exec idris -- %s %s --codegen grin -o %s --cg-opt --grin --cg-opt --O0 --cg-opt --quiet --cg-opt --eval"
-            Compiled         -> "stack exec idris -- %s %s --codegen grin -o %s --cg-opt --quiet"
+            OptimisedEval    -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed --cg-opt --eval"
+            NonOptimisedEval -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --grin --cg-opt --O0 --cg-opt --quiet --cg-opt --eval"
+            Compiled         -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --quiet"
       let idrisGrinOutputFile = case compiled of
             Compiled -> testGrinBin
             _        -> testGrin
-      let idrisGrin = (shell (printf idrisGrinCmd source includeDir idrisGrinOutputFile))
+      let idrisGrin = (shell (printf idrisGrinCmd source includeDir idrisGrinOutputFile (maybe "" ("-p "++) package)))
                       { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
 
       logs <- newIORef []
