@@ -30,11 +30,12 @@ idrisPrimOps = withPrimPrelude [progConst|
 
   ffi pure
     -- Conversion
-    _prim_int_str      :: T_Int64 -> T_String
-    _prim_str_int      :: T_String -> T_Int64
-    _prim_int_float    :: T_Int64 -> T_Float
-    _prim_float_string :: T_Float -> T_String
-    _prim_char_int     :: T_Char  -> T_Int64
+    _prim_int_str      :: T_Int64   -> T_String
+    _prim_str_int      :: T_String  -> T_Int64
+    _prim_int_float    :: T_Int64   -> T_Float
+    _prim_float_string :: T_Float   -> T_String
+    _prim_string_float :: T_String  -> T_Float
+    _prim_char_int     :: T_Char    -> T_Int64
 
   primop pure
     -- Int
@@ -258,6 +259,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     idris_str_int2 <- _prim_str_int idris_str_int1_0
     pure (CGrInt idris_str_int2)
 
+  idris_str_float idris_str_float1 =
+    (CGrString idris_str_float2) <- fetch idris_str_float1
+    idris_str_float3 <- _prim_string_float idris_str_float2
+    pure (CGrFloat idris_str_float3)
+
   idris_int_float idris_int_float1 =
     (CGrInt idris_int_float1_0) <- fetch idris_int_float1
     idris_int_float2 <- _prim_int_float idris_int_float1_0
@@ -314,11 +320,11 @@ idrisPrimOps = withPrimPrelude [progConst|
 
   idris_fileOpen idris_fileOpen1 idris_fileOpen2 =
     idris_fileOpen3 <- pure 42 -- TODO: File handler converted to (Void *) ptr
-    pure (CGrInt idris_fileOpen3)
+    pure (CGrPtr idris_fileOpen3)
 
   idris_fileError idris_fileError1 =
     idris_fileError2 <- pure 0 -- TODO: Call ferror
-    pure (CGrInt idris_fileError2)
+    pure (CGrPtr idris_fileError2)
 
   idris_fileClose idris_fileClose1 =
     idris_fileClose2 <- pure 0 -- TODO: Call fclose

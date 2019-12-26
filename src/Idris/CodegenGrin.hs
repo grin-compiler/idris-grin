@@ -286,14 +286,13 @@ primFn f ps = case f of
   LIntFloat intTy -> Grin.SApp "idris_int_float" ps
 {-
   LFloatInt intTy -> undefined
-}
 -}
-  LIntStr intTy -> Grin.SApp "idris_int_str" ps
-  LStrInt intTy -> Grin.SApp "idris_str_int" ps
-  LFloatStr -> Grin.SApp "idris_float_str" ps
-{-  LStrFloat -> undefined -}
-  LChInt intTy -> Grin.SApp "idris_ch_int" ps
-  LIntCh intTy -> Grin.SApp "idris_int_ch" ps
+  LIntStr intTy -> Grin.SApp "idris_int_str"    ps
+  LStrInt intTy -> Grin.SApp "idris_str_int"    ps
+  LFloatStr     -> Grin.SApp "idris_float_str"  ps
+  LStrFloat     -> Grin.SApp "idris_str_float"  ps
+  LChInt intTy  -> Grin.SApp "idris_ch_int"     ps
+  LIntCh intTy  -> Grin.SApp "idris_int_ch"     ps
 {-
   LBitCast arithTy1 arithTy2 -> undefined -- Only for values of equal width
   LFExp -> undefined

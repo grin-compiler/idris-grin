@@ -2,7 +2,7 @@ module IdrisSpec where
 
 import Control.Monad (forM_)
 import Test.Hspec
-import Test.Hspec.IdrisFrontend
+import Test.Hspec.IdrisGrinBackend
 import System.Environment (lookupEnv)
 
 {-

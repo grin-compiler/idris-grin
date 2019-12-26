@@ -237,6 +237,17 @@ struct string* _prim_float_string(float p1) {
     }
 }
 
+float _prim_string_float(struct string* p1) {
+#ifdef DEBUG
+    printf("_prim_string_float(%ld)\n", (int)p1);
+#endif
+    char buffer[p1->length+1];
+    cstring(buffer, p1);
+    float ret = strtof(buffer, NULL);
+    free(buffer);
+    return ret;
+}
+
 int64_t _prim_char_int(char p1) {
 #ifdef DEBUG
     printf("_prim_char_int(%c)\n", p1);
