@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase, TupleSections, RecordWildCards, TypeApplications #-}
-{-# LANGUAGE OverloadedStrings, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings, ViewPatterns, ConstraintKinds #-}
 module Idris.CodegenGrin(
     Options(..)
   , defaultOptions
@@ -31,8 +31,10 @@ import System.IO (BufferMode(..), hSetBuffering, stdout)
 import Grin.Pretty
 import Grin.Grin as Grin
 import Pipeline.Pipeline
+import Reducer.Pure (EvalPlugin(..))
 
 import Idris.PrimOps
+import Idris.EvalPrimOp
 
 {-
 TODO:
@@ -239,26 +241,53 @@ defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat (sexp fname sexp0)
 
 primFn :: Idris.PrimFn -> [SimpleVal] -> Exp
 primFn f ps = case f of
-  LPlus   (Idris.ATInt intTy) -> Grin.SApp "idris_int_add" ps
   LPlus   Idris.ATFloat       -> Grin.SApp "idris_float_add" ps
+  LPlus   (Idris.ATInt Idris.ITChar) -> Grin.SApp "idris_int_add" ps
+  LPlus   (Idris.ATInt Idris.ITBig) -> Grin.SApp "idris_int_add" ps
+  LPlus   (Idris.ATInt (Idris.ITFixed Idris.IT64)) -> Grin.SApp "idris_bit64_add" ps
+  LPlus   (Idris.ATInt intTy) -> Grin.SApp "idris_int_add" ps
   LMinus  (Idris.ATInt intTy) -> Grin.SApp "idris_int_sub" ps
   LMinus  Idris.ATFloat       -> Grin.SApp "idris_float_sub" ps
-  LTimes  (Idris.ATInt intTy) -> Grin.SApp "idris_int_mul" ps
+  LTimes  (Idris.ATInt (Idris.ITFixed Idris.IT64))  -> Grin.SApp "idris_bit64_mul" ps
+  LTimes  (Idris.ATInt intTy)                       -> Grin.SApp "idris_int_mul" ps
   LTimes  Idris.ATFloat       -> Grin.SApp "idris_float_mul" ps
   LSDiv   (Idris.ATInt intTy) -> Grin.SApp "idris_int_div" ps
   LSDiv   Idris.ATFloat       -> Grin.SApp "idris_float_div" ps
-  {-
-  LUDiv intTy -> undefined
+  LUDiv   (Idris.ITFixed Idris.IT8) -> Grin.SApp "idris_bit8_udiv" ps
+  LUDiv   (Idris.ITFixed Idris.IT16) -> Grin.SApp "idris_bit16_udiv" ps
+  LUDiv   (Idris.ITFixed Idris.IT32) -> Grin.SApp "idris_bit32_udiv" ps
+  LUDiv   (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_udiv" ps
+  LUDiv   intTy               -> Grin.SApp "idris_int_udiv" ps
+{-
   LURem intTy -> undefined
-  LSRem arithTy -> undefined
-  LAnd intTy -> undefined
+-}
+  LSRem   (Idris.ATInt intTy) -> Grin.SApp "idris_int_rem" ps
+{-
+  LSRem   arithTy -> undefined
+-}
+  LAnd (Idris.ITFixed Idris.IT8)  -> Grin.SApp "idris_bit8_and" ps
+  LAnd (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_and" ps
+  LAnd intTy -> Grin.SApp "idris_int_and" ps
+{-
   LOr intTy -> undefined
   LXOr intTy -> undefined
   LCompl intTy -> undefined
-  LSHL intTy -> undefined
-  LLSHR intTy -> undefined
-  -}
-  LASHR Idris.ITNative -> Grin.SApp "idris_lashr_int" ps
+-}
+  LSHL (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_shl" ps
+  LSHL  intTy -> Grin.SApp "idris_int_shl" ps
+
+  LLSHR (Idris.ITFixed Idris.IT8) -> Grin.SApp "idris_bit8_lshr" ps
+  LLSHR (Idris.ITFixed Idris.IT16) -> Grin.SApp "idris_bit16_lshr" ps
+  LLSHR (Idris.ITFixed Idris.IT32) -> Grin.SApp "idris_bit32_lshr" ps
+  LLSHR (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_lshr" ps
+  LLSHR intTy -> Grin.SApp "idris_int_lshr" ps
+
+  LASHR Idris.ITNative    -> Grin.SApp "idris_lashr_int" ps
+  LEq (Idris.ATInt Idris.ITBig) -> Grin.SApp "idris_int_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT8))) -> Grin.SApp "idris_bit8_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT16))) -> Grin.SApp "idris_bit16_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT32))) -> Grin.SApp "idris_bit32_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT64))) -> Grin.SApp "idris_bit64_eq" ps
   LEq (Idris.ATInt intTy) -> Grin.SApp "idris_int_eq" ps
   LEq Idris.ATFloat       -> Grin.SApp "idris_float_eq" ps
 
@@ -273,20 +302,37 @@ primFn f ps = case f of
   LLe intTy -> Grin.SApp "_prim_int_le" ps
   LGt intTy -> Grin.SApp "_prim_int_gt" ps
   LGe intTy -> Grin.SApp "_prim_int_ge" ps
-
   --LSLt Idris.ATFloat       -> Grin.SApp "_prim_float_lt" ps
 -}
   LSExt intTy1 intTy2 -> Grin.SApp "idris_ls_ext" ps
+  LZExt Idris.ITNative (Idris.ITFixed Idris.IT64)
+    -> Grin.SApp "idris_lz_ext_int_bit64" ps
+  LZExt (Idris.ITFixed Idris.IT8) Idris.ITNative
+    -> Grin.SApp "idris_lz_ext_bit8_int" ps
+  LZExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT64)
+    -> Grin.SApp "idris_lz_ext_bit8_bit64" ps
   LZExt intTy1 intTy2 -> Grin.SApp "idris_lz_ext" ps
-  LTrunc intTy1 intTy2 -> Grin.SApp "idris_ltrunc" ps
+
+  LTrunc Idris.ITBig (Idris.ITFixed Idris.IT64)
+    -> Grin.SApp "idris_ltrunc_big_bit64" ps
+  LTrunc (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT8)
+    -> Grin.SApp "idris_ltrunc_bit16_bit8" ps
+  LTrunc (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT8)
+    -> Grin.SApp "idris_ltrunc_bit32_bit8" ps
+  LTrunc (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT8)
+    -> Grin.SApp "idris_ltrunc_bit64_bit8" ps
+  LTrunc Idris.ITBig Idris.ITNative
+    -> Grin.SApp "idris_ltrunc_big_int" ps
+  LTrunc Idris.ITNative (Idris.ITFixed Idris.IT8)
+    -> Grin.SApp "idris_ltrunc_int_bit8" ps
+
+--  LTrunc intTy1 intTy2 -> Grin.SApp "idris_ltrunc" ps
   LStrConcat -> Grin.SApp "idris_str_concat" ps
   LStrLt -> Grin.SApp "idris_str_lt" ps
   LStrEq -> Grin.SApp "idris_str_eq" ps
   LStrLen -> Grin.SApp "idris_str_len" ps
   LIntFloat intTy -> Grin.SApp "idris_int_float" ps
-{-
-  LFloatInt intTy -> undefined
--}
+  LFloatInt intTy -> Grin.SApp "idris_float_int" ps
   LIntStr intTy -> Grin.SApp "idris_int_str"    ps
   LStrInt intTy -> Grin.SApp "idris_str_int"    ps
   LFloatStr     -> Grin.SApp "idris_float_str"  ps
@@ -303,18 +349,21 @@ primFn f ps = case f of
   LFASin -> undefined
   LFACos -> undefined
   LFATan -> undefined
-  LFATan2 -> undefined
+-}
+  LFATan2 -> Grin.SApp "idris_float_atan2" ps
+{-
   LFSqrt -> undefined
-  LFFloor -> undefined
-  LFCeil -> undefined
+-}
+  LFFloor -> Grin.SApp "idris_float_floor" ps
+  LFCeil  -> Grin.SApp "idris_float_ceil"  ps
+{-
   LFNegate -> undefined
 -}
-  LStrHead -> Grin.SApp "idris_str_head" ps
-  LStrTail -> Grin.SApp "idris_str_tail" ps
-  LStrCons -> Grin.SApp "idris_str_cons" ps
-{-  LStrIndex -> undefined
--}
-  LStrRev -> Grin.SApp "idris_str_rev" ps
+  LStrHead  -> Grin.SApp "idris_str_head" ps
+  LStrTail  -> Grin.SApp "idris_str_tail" ps
+  LStrCons  -> Grin.SApp "idris_str_cons" ps
+  LStrIndex -> Grin.SApp "idris_str_idx"  ps
+  LStrRev   -> Grin.SApp "idris_str_rev"  ps
 {-
   LStrSubstr -> undefined
 }
@@ -331,7 +380,9 @@ primFn f ps = case f of
     []  -> SReturn Unit
     [p] -> Grin.SApp "_prim_int_add" $ [Lit (LInt64 5), p]
     _   -> Grin.SApp "_prim_int_add" $ (take 2 ps)  -- TODO: Fix String
-  LCrash -> undefined
+  -}
+  LCrash -> Grin.SApp "idris_crash" ps
+  {-
   LNoOp -> undefined
   -}
   x -> error $ printf "unsupported primitive operation %s" (show x)
@@ -349,29 +400,23 @@ name n = packName $ "idr_" ++ (Idris.showCG n)
 
 -- Creates Nodes with Literals
 literal :: Idris.Const -> Val
-literal = \case
+literal l = case l of
   Idris.I int      -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral int)]
   Idris.BI integer -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral integer)]
   Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString $ fromString string]
   Idris.Ch char    -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral $ ord $ char)]
-  Idris.Fl double  -> ConstTagNode (Tag C "GrFloat") [Lit $ LFloat (realToFrac double)]
-  {-
-  Idris.B64 word64 -> LWord64 word64
-  Idris.Str string -> traceShow ("TODO: literal should implement String " ++ string) $ LInt64 1234
-  -}
-{-
-  Idris.B8 word8 -> undefined
-  Idris.B16 word16 -> undefined
-  Idris.B32 word32 -> undefined
-  Idris.B64 word64 -> LWord64 word64
-  Idris.AType arithTy -> undefined
-  Idris.StrType -> undefined
-  Idris.WorldType -> undefined
-  Idris.TheWorld -> undefined
-  Idris.VoidType -> undefined
-  Idris.Forgot -> undefined
--}
-  x -> error $ printf "unsupported literal %s" (show x)
+  Idris.Fl double  -> ConstTagNode (Tag C "GrFloat") [Lit $ LFloat (realToFrac double)] -- TODO
+  -- TODO: Represent appropriate bit length 8,16,32,64
+  Idris.B8 word8   -> ConstTagNode (Tag C "GrBit8") [Lit $ LWord64 (fromIntegral word8)]
+  Idris.B16 word16 -> ConstTagNode (Tag C "GrBit16") [Lit $ LWord64 (fromIntegral word16)]
+  Idris.B32 word32 -> ConstTagNode (Tag C "GrBit32") [Lit $ LWord64 (fromIntegral word32)]
+  Idris.B64 word64 -> ConstTagNode (Tag C "GrBit64") [Lit $ LWord64 (fromIntegral word64)]
+  Idris.AType arithTy -> error $ printf "unsupported literal %s" (show l)
+  Idris.StrType -> error $ printf "unsupported literal %s" (show l)
+  Idris.WorldType -> error $ printf "unsupported literal %s" (show l)
+  Idris.TheWorld -> error $ printf "unsupported literal %s" (show l)
+  Idris.VoidType -> error $ printf "unsupported literal %s" (show l)
+  Idris.Forgot -> error $ printf "unsupported literal %s" (show l)
 
 preparation :: [PipelineStep]
 preparation =
@@ -421,8 +466,15 @@ idrisOptimizations o =
       ]
     else []
 
+-- TODO: Introduce our own value representation
+evalPlugin :: EvalPlugin Lit
+evalPlugin = EvalPlugin
+  { evalPluginPrimOp  = evalPrimOp
+  , evalPluginLiteral = id
+  }
+
 postProcessing :: Options -> [PipelineStep]
 postProcessing opt = concat
   [ [ (if (outputGrin opt) then SaveGrin else (SaveExecutable (debugSymbols opt))) $ Abs $ output opt ]
-  , [ PureEval | evalGrin opt ]
+  , [ PureEvalPlugin evalPlugin | evalGrin opt ]
   ]

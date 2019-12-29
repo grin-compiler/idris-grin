@@ -13,7 +13,6 @@ when the test runs. In the long term these quests will be unlocked. :)
 spec :: Spec
 spec = do
   let mode = NonOptimisedEval
-
   let testBackend idrisFile =
         IdrisCodeGen
           { source        = idrisFile :: String
@@ -24,8 +23,8 @@ spec = do
           , package       = Nothing   :: Maybe String
           }
 
-  --describe "In focus" $ do
-  --  pure ()
+  describe "In focus" $ do
+    pure ()
 
   when False $ describe "Idris and Grin matches for" $ do
     xit "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" $ testBackend "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr"
@@ -72,7 +71,7 @@ spec = do
     it "test/idris-dev/bounded001/bounded001.idr" $ testBackend "test/idris-dev/bounded001/bounded001.idr"
     it "test/idris-dev/buffer001/buffer001.idr" $ testBackend "test/idris-dev/buffer001/buffer001.idr"
     it "test/idris-dev/buffer002/buffer002.idr" $ testBackend "test/idris-dev/buffer002/buffer002.idr"
-    it "test/idris-dev/contrib001/contrib001.idr" $ (testBackend "test/idris-dev/contrib001/contrib001.idr") { package = Just "contrib" }
+    xit "test/idris-dev/contrib001/contrib001.idr" $ (testBackend "test/idris-dev/contrib001/contrib001.idr") { package = Just "contrib" }
     it "test/idris-dev/corecords001/corecords001.idr" $ testBackend "test/idris-dev/corecords001/corecords001.idr"
     it "test/idris-dev/corecords002/corecords002.idr" $ testBackend "test/idris-dev/corecords002/corecords002.idr"
     it "test/idris-dev/directives003/directives003.idr" $ testBackend "test/idris-dev/directives003/directives003.idr"

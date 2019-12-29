@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
+#include <math.h>
 #include "prim_ops.h"
 
 #define BUFFER_SIZE 256
@@ -18,6 +19,7 @@ NOTES:
 
 */
 
+// #define DEBUG
 
 struct string* create_string_len(int64_t l) {
     struct string* r = (struct string*)malloc(sizeof(struct string));
@@ -58,6 +60,16 @@ void _prim_string_print(struct string* p1){
     }
 }
 
+int64_t _prim_string_index(struct string* p1, int64_t p2) {
+#ifdef DEBUG
+    printf("_prim_string_index(%ld, %d)\n", (int64_t)p1, p2);
+#endif
+    if (p2 < 0 || p2 >= p1->length) {
+        exit(-1);
+    }
+    return (int64_t)(p1->data[p2]);
+};
+
 void _prim_int_print(int64_t p1) {
 #ifdef DEBUG
     printf("_prim_int_print(%d)\n", (int)p1);
@@ -80,13 +92,6 @@ struct string* _prim_read_string() {
 #endif
         return r;
     }
-}
-
-void _prim_usleep(int64_t p1) {
-#ifdef DEBUG
-    printf("_prim_usleep(%ld)\n", p1);
-#endif
-    usleep(p1); // p1 microseconds
 }
 
 void _prim_error(struct string* p1) {
@@ -223,6 +228,34 @@ float _prim_int_float(int64_t p1) {
     return (float)p1;
 }
 
+int64_t _prim_float_int(float p1) {
+#ifdef DEBUG
+    printf("_prim_float_int(%f)\n", p1);
+#endif
+    return (int64_t)p1;
+}
+
+float _prim_float_floor(float p1){
+#ifdef DEBUG
+    printf("_prim_float_floor(%f)\n", p1);
+#endif
+    return (float)floor((double)p1);
+}
+
+float _prim_float_ceil(float p1){
+#ifdef DEBUG
+    printf("_prim_float_ceil(%f)\n", p1);
+#endif
+    return (float)ceil((double)p1);
+}
+
+float _prim_float_atan2(float p1, float p2){
+#ifdef DEBUG
+    printf("_prim_float_atan2(%f,%f)\n", p1, p2);
+#endif
+    return (float)atan2((double)p1,(double)p2);
+}
+
 struct string* _prim_float_string(float p1) {
 #ifdef DEBUG
     printf("_prim_float_string(%f)\n", p1);
@@ -268,4 +301,65 @@ int64_t _prim_errno(){
     printf("_prim_errno()\n");
 #endif
     return errno;
+}
+
+void _prim_usleep(int64_t p1) {
+#ifdef DEBUG
+    printf("_prim_usleep(%ld)\n", p1);
+#endif
+    usleep(p1); // p1 microseconds
+}
+
+void _prim_crash(struct string* p1) {
+#ifdef DEBUG
+    printf("_prim_crash(%ld)\n", p1);
+#endif
+    // A buffer of the string length and the 0 at the end.
+    char buffer[p1->length + 1];
+    cstring(buffer, p1);
+    fprintf(stderr, "%s\n", buffer);
+    free(buffer);
+    exit(-1);
+}
+
+int64_t _prim_uint_div(int64_t p1, int64_t p2) {
+#ifdef DEBUG
+    printf("_prim_int_div(%d,%d)\n", p1, p2);
+#endif
+    return (int64_t)((uint64_t)p1 / (uint64_t)p2);
+}
+
+int64_t _prim_int_rem(int64_t p1, int64_t p2) {
+#ifdef DEBUG
+    printf("_prim_int_rem(%d,%d)\n", p1, p2);
+#endif
+    return (int64_t)(p1 % p2);
+}
+
+int64_t _prim_int_shl(int64_t p1, int64_t p2) {
+#ifdef DEBUG
+    printf("_prim_int_shl(%d,%d)\n", p1, p2);
+#endif
+    return (p1 << p2);
+}
+
+int64_t _prim_int_lshr(int64_t p1, int64_t p2) {
+#ifdef DEBUG
+    printf("_prim_int_lshr(%d, %d)\n", p1, p2);
+#endif
+    return (p1 >> p2)
+}
+
+int64_t _prim_int_and(int64_t p1, int64_t p2) {
+#ifdef DEBUG
+    printf("_prim_int_and(%d,%d)\n", p1, p2);
+#endif
+    return (p1 & p2);
+}
+
+uint64_t _prim_int_word(int64_t p1) {
+#ifdef DEBUG
+    printf("_prim_int_word(%d)\n", p1);
+#endif
+    return (uint64_t)p1;
 }

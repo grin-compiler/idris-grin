@@ -101,6 +101,14 @@ instance Example IdrisCodeGen where
       doesFileExist testGrin >>= flip when (removeFile testGrin)
       doesFileExist testGrinBin >>= flip when (removeFile testGrinBin)
       progress
+
+      logs <- newIORef []
+      let addLogLines lines = modifyIORef logs (force . (++ lines))
+      let readFinalLogs = fmap unlines $ readIORef logs
+      let attachLogs r = do
+            logLines <- readFinalLogs
+            pure $ (either (Result logLines) (const (Result [] Success))) r
+
       let stdInCreate = maybe NoStream (const CreatePipe) input
       let enterInput mh = fromMaybe (pure ()) $ do -- Maybe
                             h <- mh
@@ -111,7 +119,8 @@ instance Example IdrisCodeGen where
                               hFlushAll h
                               -- hClose h
       let includeDir = if withInclude then "-i " ++ takeDirectory source else ""
-      let idris = (shell (printf "stack exec idris -- %s %s -o %s %s" source includeDir testBin (maybe "" ("-p "++) package)))
+      let idrisFullCmd = printf "stack exec idris -- %s %s -o %s %s" source includeDir testBin (maybe "" ("-p "++) package)
+      let idris = (shell idrisFullCmd)
                   { std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe } -- TODO: Log activity
       let runTest = (shell $ "./" ++ testBin)
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
@@ -124,23 +133,17 @@ instance Example IdrisCodeGen where
       let idrisGrinOutputFile = case compiled of
             Compiled -> testGrinBin
             _        -> testGrin
-      let idrisGrin = (shell (printf idrisGrinCmd source includeDir idrisGrinOutputFile (maybe "" ("-p "++) package)))
+      let idrisGrinFullCmd = printf idrisGrinCmd source includeDir idrisGrinOutputFile (maybe "" ("-p "++) package)
+      let idrisGrin = (shell idrisGrinFullCmd)
                       { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
 
-      logs <- newIORef []
-      let addLogLines lines = modifyIORef logs (force . (++ lines))
-      let readFinalLogs = fmap unlines $ readIORef logs
-      let attachLogs r = do
-            logLines <- readFinalLogs
-            pure $ (either (Result logLines) (const (Result [] Success))) r
 
       res <- (attachLogs =<<) $ runExceptT $ do
         lift $ progress
+        lift $ addLogLines ["Compile idris", "=============", idrisFullCmd]
         (_in, Just out, Just err, idrisPh) <- lift $ createProcess_ "Idris" idris
-        lift $ progress
         idrisExitCode <- lift $ waitProcess timeoutInSecs idrisPh
         lift $ progress
-        lift $ addLogLines ["Compile idris", "============="]
         tryExcept (hGetContents out >>= (addLogLines . lines . force))
         tryExcept (hGetContents err >>= (addLogLines . lines . force))
         when (idrisExitCode /= ExitSuccess) $ do
@@ -164,8 +167,8 @@ instance Example IdrisCodeGen where
         grinOut <- case compiled of
           Compiled -> do
             lift $ progress
+            lift $ addLogLines ["Generate and compile GRIN code", "==============================", idrisGrinFullCmd]
             (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
-            lift $ progress
             idrisGrinExitCode <- lift $ waitProcess timeoutInSecs idrisGrinPh
             compOut <- tryExcept $ fmap force $ hGetContents out
             lift $ addLogLines $ lines compOut
@@ -174,13 +177,13 @@ instance Example IdrisCodeGen where
               lift $ addLogLines $ lines compErr
 
             lift $ progress
+            lift $ addLogLines ["Run generated GRIN executable", "============================="]
             (mIn, Just out, Just err, runGrinTestPh) <- lift $ createProcess_ "Test grin.bin" runGrinTest
             enterInput mIn
             runGrinTestExitCode <- lift $ waitProcess timeoutInSecs runGrinTestPh
 
             lift $ doesFileExist testGrinBin >>= flip when (removeFile testGrinBin)
             grinOut <- tryExcept $ fmap force $ hGetContents out
-            lift $ addLogLines ["Compile and run grin", "===================="]
             lift $ addLogLines $ lines grinOut
             tryExcept (hGetContents err >>= (addLogLines . lines . force))
             when (runGrinTestExitCode /= ExitSuccess) $ do
@@ -190,6 +193,7 @@ instance Example IdrisCodeGen where
 
           _ -> do
             lift $ progress
+            lift $ addLogLines ["Compile and interpret GRIN", "==========================", idrisGrinFullCmd]
             (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
             lift $ progress
             enterInput mIn
@@ -197,7 +201,6 @@ instance Example IdrisCodeGen where
             lift $ progress
             lift $ doesFileExist testGrin >>= flip when (removeFile testGrin)
             grinOut <- tryExcept $ fmap force $ hGetContents out
-            lift $ addLogLines ["Compile and run grin", "===================="]
             lift $ addLogLines $ lines grinOut
             tryExcept (hGetContents err >>= (addLogLines . lines . force))
             case idrisGrinExitCode of
