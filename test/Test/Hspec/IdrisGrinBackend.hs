@@ -30,7 +30,6 @@ import Data.Time.Clock
 import System.FilePath
 
 import Control.Exception
-import Control.DeepSeq
 import Control.Concurrent (threadDelay)
 
 
@@ -103,7 +102,7 @@ instance Example IdrisCodeGen where
       progress
 
       logs <- newIORef []
-      let addLogLines lines = modifyIORef logs (force . (++ lines))
+      let addLogLines lines = modifyIORef logs (++ lines)
       let readFinalLogs = fmap unlines $ readIORef logs
       let attachLogs r = do
             logLines <- readFinalLogs
@@ -144,8 +143,8 @@ instance Example IdrisCodeGen where
         (_in, Just out, Just err, idrisPh) <- lift $ createProcess_ "Idris" idris
         idrisExitCode <- lift $ waitProcess timeoutInSecs idrisPh
         lift $ progress
-        tryExcept (hGetContents out >>= (addLogLines . lines . force))
-        tryExcept (hGetContents err >>= (addLogLines . lines . force))
+        tryExcept (hGetContents out >>= (addLogLines . lines))
+        tryExcept (hGetContents err >>= (addLogLines . lines))
         when (idrisExitCode /= ExitSuccess) $ do
           -- lift $ hClose out
           throwE $ Failure Nothing $ Reason $ "Idris process exited with: " ++ show idrisExitCode
@@ -156,10 +155,10 @@ instance Example IdrisCodeGen where
         runTestExitCode <- lift $ waitProcess timeoutInSecs runTestPh
         lift $ progress
         lift $ doesFileExist testBin >>= flip when (removeFile testBin)
-        testOut <- tryExcept $ fmap force $ hGetContents out
+        testOut <- tryExcept $ hGetContents out
         lift $ addLogLines ["Run idris generated binary", "=========================="]
         lift $ addLogLines $ lines testOut
-        tryExcept (hGetContents err >>= (addLogLines . lines . force))
+        tryExcept (hGetContents err >>= (addLogLines . lines))
         when (runTestExitCode /= ExitSuccess) $ do
           -- lift $ hClose out
           throwE $ Failure Nothing $ Reason $ "Test process exited with: " ++ show runTestExitCode
@@ -170,10 +169,10 @@ instance Example IdrisCodeGen where
             lift $ addLogLines ["Generate and compile GRIN code", "==============================", idrisGrinFullCmd]
             (mIn, Just out, Just err, idrisGrinPh) <- lift $ createProcess_ "IdrisGrin" idrisGrin
             idrisGrinExitCode <- lift $ waitProcess timeoutInSecs idrisGrinPh
-            compOut <- tryExcept $ fmap force $ hGetContents out
+            compOut <- tryExcept $ hGetContents out
             lift $ addLogLines $ lines compOut
             when (idrisGrinExitCode /= ExitSuccess) $ do
-              compErr <- tryExcept $ fmap force $ hGetContents err
+              compErr <- tryExcept $ hGetContents err
               lift $ addLogLines $ lines compErr
 
             lift $ progress
@@ -183,9 +182,9 @@ instance Example IdrisCodeGen where
             runGrinTestExitCode <- lift $ waitProcess timeoutInSecs runGrinTestPh
 
             lift $ doesFileExist testGrinBin >>= flip when (removeFile testGrinBin)
-            grinOut <- tryExcept $ fmap force $ hGetContents out
+            grinOut <- tryExcept $ hGetContents out
             lift $ addLogLines $ lines grinOut
-            tryExcept (hGetContents err >>= (addLogLines . lines . force))
+            tryExcept (hGetContents err >>= (addLogLines . lines))
             when (runGrinTestExitCode /= ExitSuccess) $ do
               throwE $ Failure Nothing $ Reason $ "Compiled Grin Test process exited with: " ++ show runGrinTestExitCode
 
@@ -200,9 +199,9 @@ instance Example IdrisCodeGen where
             idrisGrinExitCode <- lift $ waitProcess timeoutInSecs idrisGrinPh
             lift $ progress
             lift $ doesFileExist testGrin >>= flip when (removeFile testGrin)
-            grinOut <- tryExcept $ fmap force $ hGetContents out
+            grinOut <- tryExcept $ hGetContents out
             lift $ addLogLines $ lines grinOut
-            tryExcept (hGetContents err >>= (addLogLines . lines . force))
+            tryExcept (hGetContents err >>= (addLogLines . lines))
             case idrisGrinExitCode of
               ExitSuccess       -> pure grinOut
               ExitFailure (-15) -> pure grinOut -- Timeout, killed, etc
@@ -223,7 +222,7 @@ bisect waitProcess logs enterInput timeoutInSecs directory stdInCreate expectedO
   files <- fmap (filter isGrinFile) $ lift $ listDirectory directory
   let fileMap = createFileMap files
   let range = findRange fileMap
-  let addLogLines lines = modifyIORef logs (force . (++ lines))
+  let addLogLines lines = modifyIORef logs (++ lines)
 
   let run idx = do
         let cmd = printf "stack exec grin -- %s --load-binary --quiet --eval" (fromJust $ Map.lookup idx fileMap)
@@ -232,8 +231,8 @@ bisect waitProcess logs enterInput timeoutInSecs directory stdInCreate expectedO
         (mIn, Just out, Just err, cmdPh) <- lift $ createProcess_ cmd runGrin
         enterInput mIn
         cmdExitCode <- lift $ waitProcess timeoutInSecs cmdPh
-        output <- tryExcept $ fmap force $ hGetContents out
-        errors <- tryExcept $ fmap force $ hGetContents err
+        output <- tryExcept $ hGetContents out
+        errors <- tryExcept $ hGetContents err
         lift $ addLogLines $ lines output
         lift $ addLogLines $ lines errors
         case cmdExitCode of

@@ -91,7 +91,6 @@ executable idris-codegen-test
                 , hspec-discover
                 , process
                 , time
-                , deepseq
   other-modules: IdrisSpec
                , IdrisDevSpec
                , Test.Hspec.IdrisGrinBackend

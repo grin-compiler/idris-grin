@@ -26,7 +26,11 @@ spec = do
   describe "In focus" $ do
     pure ()
 
-  when False $ describe "Idris and Grin matches for" $ do
+  run <- runIO $ do
+    env <- lookupEnv "IDRIS_GRIN_CI"
+    pure $ maybe True (const False) env
+
+  when run $ describe "Idris and Grin matches for" $ do
     xit "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" $ testBackend "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr"
     xit "test/idris-dev/totality015/totality015.idr" $ testBackend "test/idris-dev/totality015/totality015.idr"
     xit "test/idris-dev/totality015/totality015a.idr" $ testBackend "test/idris-dev/totality015/totality015a.idr"

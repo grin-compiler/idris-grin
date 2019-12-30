@@ -19,7 +19,7 @@ spec = do
     env <- lookupEnv "IDRIS_GRIN_CI"
     pure $ maybe [NonOptimisedEval, OptimisedEval, Compiled] (const [NonOptimisedEval]) env
 
-  when False $ describe "Idris and Grin matches for:" $ forM_ modes $ \mode -> describe (show mode) $ do
+  when True $ describe "Idris and Grin matches for:" $ forM_ modes $ \mode -> describe (show mode) $ do
     it "TDD 01 - 01 Hello World" $ timed $ idris mode 600 "test/tdd/chapter01/01_HelloWorld.idr"
     it "TDD 01 - 02 CalcType" $ timed $ idris mode 600 "test/tdd/chapter01/02_CalcType.idr"
     it "TDD 02 - 01 Average" $ timed $ idris mode 600 "test/tdd/chapter02/01_Average.idr"
