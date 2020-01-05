@@ -6,7 +6,7 @@ main = do Just buf <- newBuffer 40
           setByte buf 5 42
           setString buf 20 "Hello world!"
           printLn !(bufferData buf)
-          Just buf2 <- resizeBuffer buf 50 
+          Just buf2 <- resizeBuffer buf 50
           putStrLn "Resized"
           printLn !(bufferData buf2)
 
@@ -21,6 +21,7 @@ main = do Just buf <- newBuffer 40
           Right h <- openFile "test.buf" Read
           buf3 <- readBufferFromFile h buf3 (size buf3)
           closeFile h
+
           Right h <- openFile "test.buf" Read
           readBufferFromFile h buf3 (size buf3)
           closeFile h

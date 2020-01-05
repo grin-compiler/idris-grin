@@ -26,11 +26,11 @@ spec = do
   describe "In focus" $ do
     pure ()
 
-  run <- runIO $ do
+  notOnCI <- runIO $ do
     env <- lookupEnv "IDRIS_GRIN_CI"
     pure $ maybe True (const False) env
 
-  when run $ describe "Idris and Grin matches for" $ do
+  when notOnCI $ describe "Idris and Grin matches for" $ do
     xit "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" $ testBackend "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr"
     xit "test/idris-dev/totality015/totality015.idr" $ testBackend "test/idris-dev/totality015/totality015.idr"
     xit "test/idris-dev/totality015/totality015a.idr" $ testBackend "test/idris-dev/totality015/totality015a.idr"
@@ -78,7 +78,7 @@ spec = do
     xit "test/idris-dev/contrib001/contrib001.idr" $ (testBackend "test/idris-dev/contrib001/contrib001.idr") { package = Just "contrib" }
     it "test/idris-dev/corecords001/corecords001.idr" $ testBackend "test/idris-dev/corecords001/corecords001.idr"
     it "test/idris-dev/corecords002/corecords002.idr" $ testBackend "test/idris-dev/corecords002/corecords002.idr"
-    it "test/idris-dev/directives003/directives003.idr" $ testBackend "test/idris-dev/directives003/directives003.idr"
+    xit "test/idris-dev/directives003/directives003.idr" $ testBackend "test/idris-dev/directives003/directives003.idr"
     xit "test/idris-dev/dsl002/test014.idr" $ testBackend "test/idris-dev/dsl002/test014.idr"
     it "test/idris-dev/effects001/test021.idr" $ (testBackend "test/idris-dev/effects001/test021.idr") { package = Just "effects" }
     it "test/idris-dev/effects001/test021a.idr" $ (testBackend "test/idris-dev/effects001/test021a.idr") { package = Just "effects" }
@@ -87,7 +87,7 @@ spec = do
     it "test/idris-dev/effects005/defaultLogger.idr" $ (testBackend "test/idris-dev/effects005/defaultLogger.idr") { package = Just "effects" }
     xit "test/idris-dev/ffi001/test022.idr" $ testBackend "test/idris-dev/ffi001/test022.idr"
     xit "test/idris-dev/ffi003/test024.idr" $ testBackend "test/idris-dev/ffi003/test024.idr"
-    it "test/idris-dev/ffi005/Postulate.idr" $ testBackend "test/idris-dev/ffi005/Postulate.idr"
+    xit "test/idris-dev/ffi005/Postulate.idr" $ testBackend "test/idris-dev/ffi005/Postulate.idr"
     xit "test/idris-dev/ffi007/ffi007.idr" $ testBackend "test/idris-dev/ffi007/ffi007.idr"
     xit "test/idris-dev/ffi008/ffi008.idr" $ (testBackend "test/idris-dev/ffi008/ffi008.idr") { package = Just "contrib" }
     xit "test/idris-dev/ffi009/Bad.idr" $ testBackend "test/idris-dev/ffi009/Bad.idr"
@@ -101,9 +101,9 @@ spec = do
     it "test/idris-dev/io002/test008.idr" $ testBackend "test/idris-dev/io002/test008.idr"
     it "test/idris-dev/io003/test018.idr" $ testBackend "test/idris-dev/io003/test018.idr"
     it "test/idris-dev/io003/test018a.idr" $ (testBackend "test/idris-dev/io003/test018a.idr") { package = Just "contrib" }
-    it "test/idris-dev/literate001/Lit.lidr" $ testBackend "test/idris-dev/literate001/Lit.lidr"
+    xit "test/idris-dev/literate001/Lit.lidr" $ testBackend "test/idris-dev/literate001/Lit.lidr"
     it "test/idris-dev/literate001/test003.lidr" $ testBackend "test/idris-dev/literate001/test003.lidr"
-    it "test/idris-dev/literate001/test003a.lidr" $ testBackend "test/idris-dev/literate001/test003a.lidr"
+    xit "test/idris-dev/literate001/test003a.lidr" $ testBackend "test/idris-dev/literate001/test003a.lidr"
     xit "test/idris-dev/pkg001/Main.idr" $ testBackend "test/idris-dev/pkg001/Main.idr"
     it "test/idris-dev/pkg002/Main.idr" $ testBackend "test/idris-dev/pkg002/Main.idr"
     it "test/idris-dev/pkg003/Main.idr" $ testBackend "test/idris-dev/pkg003/Main.idr"
@@ -163,4 +163,4 @@ spec = do
     it "test/idris-dev/views001/views001.idr" $ testBackend "test/idris-dev/views001/views001.idr"
     it "test/idris-dev/views001/views001a.idr" $ testBackend "test/idris-dev/views001/views001a.idr"
     it "test/idris-dev/views002/views002.idr" $ testBackend "test/idris-dev/views002/views002.idr"
-    it "test/idris-dev/views003/views003.idr" $ testBackend "test/idris-dev/views003/views003.idr"
+    xit "test/idris-dev/views003/views003.idr" $ testBackend "test/idris-dev/views003/views003.idr"

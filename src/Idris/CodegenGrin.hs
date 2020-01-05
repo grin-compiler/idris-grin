@@ -77,6 +77,7 @@ defaultOptions = Options
 codegenGrin :: Options -> CodegenInfo -> IO ()
 codegenGrin o@Options{..} CodegenInfo{..} = do
   hSetBuffering stdout NoBuffering
+  postProcessing <- createPostProcessing
   optimizeWith
     (defaultOpts
       { _poOutputDir = outputDir
@@ -176,20 +177,111 @@ sexp fname = \case
 variableName :: Val -> Name
 variableName (Var n) = n
 
-foreignFun fname _ (FStr "idris_int_print") [(_, arg)] = Grin.SApp "idris_int_print" [lvar fname $ arg]
-foreignFun fname _ (FStr "fileEOF") [(_,lvar0)] = Grin.SApp "idris_ffi_file_eof" [lvar fname $ lvar0]
-foreignFun fname _ (FStr "idris_usleep") [(_,lvar0)] = Grin.SApp "idris_usleep" [lvar fname $ lvar0]
-foreignFun fname _ (FStr "idris_time") [] = Grin.SApp "idris_time" []
-foreignFun fname _ (FStr "idris_errno") [] = Grin.SApp "idris_errno" []
-foreignFun fname _ (FStr "fileSize") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileSize" [lvar fname $ lvar0]
-foreignFun fname _ (FStr "fileOpen") [(_FCon_C_Str0, lvar0), (_FCon_C_Str1, lvar1)] = Grin.SApp "idris_fileOpen" $ map (lvar fname) [lvar0, lvar1]
-foreignFun fname _ (FStr "fileError") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileError" [lvar fname $ lvar0]
-foreignFun fname _ (FStr "fileClose") [(_FCon_C_Ptr, lvar0)] = Grin.SApp "idris_fileClose" [lvar fname $ lvar0]
-foreignFun fname _ (FStr "idris_addToString") [(_FCon_C_Ptr, lvar0), (_FCon_C_Str, lvar1)] = Grin.SApp "idris_addToString" $ map (lvar fname) [lvar0, lvar1]
-foreignFun fname _ (FStr "idris_mkFileError") [(_FCon_C_Ptr_VM, lvar0)] = Grin.SApp "idris_mkFileError" [lvar fname $ lvar0]
-foreignFun fname _ (FStr "idris_getString") [(_FCon_C_Ptr0VM, lvar0), (_FCon_C_Ptr1StrBuffer, lvar1)] = Grin.SApp "idris_getString" $ map (lvar fname) [lvar0, lvar1]
-foreignFun fname _ (FStr "idris_makeStringBuffer") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative,lvar0)] = Grin.SApp "idris_makeStringBuffer" [lvar fname $ lvar0]
-foreignFun fname _ (FStr "isNull") [(_FCon_C_Ptr,lvar0)] = Grin.SApp "isNull" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_int_print") [(_, arg)]
+  = Grin.SApp "idris_int_print" [lvar fname $ arg]
+foreignFun fname _ (FStr "fileEOF") [(_,lvar0)]
+  = Grin.SApp "idris_ffi_file_eof" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_usleep") [(_,lvar0)]
+  = Grin.SApp "idris_usleep" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_time") []
+  = Grin.SApp "idris_time" []
+foreignFun fname _ (FStr "idris_errno") []
+  = Grin.SApp "idris_errno" []
+foreignFun fname _ (FStr "fileSize") [(_FCon_C_Ptr, lvar0)]
+  = Grin.SApp "idris_fileSize" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "fileOpen") [(_FCon_C_Str0, lvar0), (_FCon_C_Str1, lvar1)]
+  = Grin.SApp "idris_fileOpen" $ map (lvar fname) [lvar0, lvar1]
+foreignFun fname _ (FStr "fileError") [(_FCon_C_Ptr, lvar0)]
+  = Grin.SApp "idris_fileError" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "fileClose") [(_FCon_C_Ptr, lvar0)]
+  = Grin.SApp "idris_fileClose" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_addToString") [(_FCon_C_Ptr, lvar0), (_FCon_C_Str, lvar1)]
+  = Grin.SApp "idris_addToString" $ map (lvar fname) [lvar0, lvar1]
+foreignFun fname _ (FStr "idris_mkFileError") [(_FCon_C_Ptr_VM, lvar0)]
+  = Grin.SApp "idris_mkFileError" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "idris_getString") [(_FCon_C_Ptr0VM, lvar0), (_FCon_C_Ptr1StrBuffer, lvar1)]
+  = Grin.SApp "idris_getString" $ map (lvar fname) [lvar0, lvar1]
+foreignFun fname _ (FStr "idris_makeStringBuffer") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative,lvar0)]
+  = Grin.SApp "idris_makeStringBuffer" [lvar fname $ lvar0]
+foreignFun fname _ (FStr "isNull") [(_FCon_C_Ptr,lvar0)]
+  = Grin.SApp "isNull" [lvar fname $ lvar0]
+
+foreignFun fname _ (FStr "idris_newBuffer") [(_FCon_C_Ptr,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative,lvar2)]
+  = Grin.SApp "idris_newBuffer" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "idris_newRef") [(_FApp_C_Any_FCon1,lvar1)]
+  = Grin.SApp "idris_newRef" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_writeRef") [(_FApp_C_Any_FCon1,lvar1),(_FApp_C_Any_FCon2,lvar2)]
+  = Grin.SApp "idris_writeRef" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "idris_copyBuffer") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntNative3,lvar3),(_FCon_C_MPtr4,lvar4),(_FApp_C_IntT_FUnknown_FCon_C_IntNative5,lvar5)]
+  = Grin.SApp "idris_copyBuffer" (map (lvar fname) [lvar1, lvar2, lvar3, lvar4, lvar5])
+foreignFun fname _ (FStr "idris_getBufferByte") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2)]
+  = Grin.SApp "idris_getBufferByte" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "idris_getBufferDouble") [(_FCon_C_MPtr,lvar1),(_FApp_C_IntT_FUnknown_FCon, lvar2)]
+  = Grin.SApp "idris_getBufferDouble" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "fflush") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "fflush" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "exit") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative1,lvar1)]
+  = Grin.SApp "exit" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_freeMsg") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "idris_freeMsg" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "free") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "free" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_showerror") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative1,lvar1)]
+  = Grin.SApp "idris_showerror" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_numArgs") []
+  = Grin.SApp "idris_numArgs" []
+foreignFun fname _ (FStr "fgetc") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "fgetc" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "getchar") []
+  = Grin.SApp "getchar" []
+foreignFun fname _ (FStr "idris_memmove") [(_FCon_C_Ptr1,lvar1),(_FCon_C_Ptr2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntNative3,lvar3),(_FApp_C_IntT_FUnknown_FCon_C_IntNative4,lvar4),(_FApp_C_IntT_FUnknown_FCon_C_IntNative5,lvar5)]
+  = Grin.SApp "idris_memmove" (map (lvar fname) [lvar1, lvar2, lvar3, lvar4, lvar5])
+foreignFun fname _ (FStr "calloc") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative1,lvar1),(_FApp_C_IntT2, lvar2)]
+  = Grin.SApp "calloc" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "idris_getSender") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "idris_getSender" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_getArg") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative1,lvar1)]
+  = Grin.SApp "idris_getArg" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_readRef") [(_FApp_C_Any_FCon1,lvar1)]
+  = Grin.SApp "idris_readRef" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_readBuffer") [(_FCon_C_Ptr1,lvar1),(_FCon_C_MPtr2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntNative3,lvar3),(_FApp_C_IntT_FUnknown_FCon_C_IntNative4,lvar4)]
+  = Grin.SApp "idris_readBuffer" (map (lvar fname) [lvar1, lvar2, lvar3, lvar4])
+foreignFun fname _ (FStr "idris_getBufferInt") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2)]
+  = Grin.SApp "idris_getBufferInt" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "putchar") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative1,lvar1)]
+  = Grin.SApp "putchar" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_memset") [(_FCon_C_Ptr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntBits8_3,lvar3),(_FApp_C_IntT_FUnknown_FCon_C_IntNative4,lvar4)]
+  = Grin.SApp "idris_memset" (map (lvar fname) [lvar1, lvar2, lvar3, lvar4])
+foreignFun fname _ (FStr "idris_getChannel") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "idris_getChannel" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_setBufferByte") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntBits8_3,lvar3)]
+  = Grin.SApp "idris_setBufferByte" (map (lvar fname) [lvar1, lvar2, lvar3])
+foreignFun fname _ (FStr "idris_getBufferString") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntNative3,lvar3)]
+  = Grin.SApp "idris_getBufferString" (map (lvar fname) [lvar1, lvar2, lvar3])
+foreignFun fname _ (FStr "idris_peek") [(_FCon_C_Ptr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2)]
+  = Grin.SApp "idris_peek" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "idris_recvMessage") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "idris_recvMessage" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_checkMessages") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "idris_checkMessages" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_setBufferString") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FCon_C_Str3,lvar3)]
+  = Grin.SApp "idris_setBufferString" (map (lvar fname) [lvar1, lvar2, lvar3])
+foreignFun fname _ (FStr "idris_setBufferDouble") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FCon_C_Float3,lvar3)]
+  = Grin.SApp "idris_setBufferDouble" (map (lvar fname) [lvar1, lvar2, lvar3])
+foreignFun fname _ (FStr "idris_poke") [(_FCon_C_Ptr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntBits8_3,lvar3)]
+  = Grin.SApp "idris_poke" (map (lvar fname) [lvar1, lvar2, lvar3])
+foreignFun fname _ (FStr "idris_checkMessagesTimeout") [(_FCon_C_Ptr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2)]
+  = Grin.SApp "idris_checkMessagesTimeout" (map (lvar fname) [lvar1, lvar2])
+foreignFun fname _ (FStr "idris_getMsg") [(_FCon_C_Ptr1,lvar1)]
+  = Grin.SApp "idris_getMsg" (map (lvar fname) [lvar1])
+foreignFun fname _ (FStr "idris_sendMessage") [(_FCon_C_Ptr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FCon_C_Ptr3,lvar3),(_FApp_C_Any_FCon4,lvar4)]
+  = Grin.SApp "idris_sendMessage" (map (lvar fname) [lvar1,lvar2,lvar3,lvar4])
+foreignFun fname _ (FStr "idris_writeBuffer") [(_FCon_C_Ptr1,lvar1),(_FCon_C_MPtr2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntNative3,lvar3),(_FApp_C_IntT_FUnknown_FCon_C_IntNative4,lvar4)]
+  = Grin.SApp "idris_writeBuffer" (map (lvar fname) [lvar1,lvar2,lvar3,lvar4])
+foreignFun fname _ (FStr "idris_setBufferInt") [(_FCon_C_MPtr1,lvar1),(_FApp_C_IntT_FUnknown_FCon_C_IntNative2,lvar2),(_FApp_C_IntT_FUnknown_FCon_C_IntNative3,lvar3)]
+  = Grin.SApp "idris_setBufferInt" (map (lvar fname) [lvar1,lvar2,lvar3])
+foreignFun fname _ (FStr "malloc") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative1,lvar1)]
+  = Grin.SApp "malloc" (map (lvar fname) [lvar1])
 foreignFun fname _ rest args = error $ show rest ++ " " ++ show args
 
 alts :: Name -> [SAlt] -> [Exp]
@@ -241,9 +333,9 @@ defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat (sexp fname sexp0)
 
 primFn :: Idris.PrimFn -> [SimpleVal] -> Exp
 primFn f ps = case f of
-  LPlus   Idris.ATFloat       -> Grin.SApp "idris_float_add" ps
-  LPlus   (Idris.ATInt Idris.ITChar) -> Grin.SApp "idris_int_add" ps
-  LPlus   (Idris.ATInt Idris.ITBig) -> Grin.SApp "idris_int_add" ps
+  LPlus   Idris.ATFloat               -> Grin.SApp "idris_float_add" ps
+  LPlus   (Idris.ATInt Idris.ITChar)  -> Grin.SApp "idris_int_add" ps
+  LPlus   (Idris.ATInt Idris.ITBig)   -> Grin.SApp "idris_int_add" ps
   LPlus   (Idris.ATInt (Idris.ITFixed Idris.IT64)) -> Grin.SApp "idris_bit64_add" ps
   LPlus   (Idris.ATInt intTy) -> Grin.SApp "idris_int_add" ps
   LMinus  (Idris.ATInt intTy) -> Grin.SApp "idris_int_sub" ps
@@ -326,7 +418,6 @@ primFn f ps = case f of
   LTrunc Idris.ITNative (Idris.ITFixed Idris.IT8)
     -> Grin.SApp "idris_ltrunc_int_bit8" ps
 
---  LTrunc intTy1 intTy2 -> Grin.SApp "idris_ltrunc" ps
   LStrConcat -> Grin.SApp "idris_str_concat" ps
   LStrLt -> Grin.SApp "idris_str_lt" ps
   LStrEq -> Grin.SApp "idris_str_eq" ps
@@ -374,12 +465,10 @@ primFn f ps = case f of
   LExternal name -> Grin.SApp (packName $ show name) ps
   {-
   LSystemInfo -> undefined
-  LFork -> undefined
+  -}
+  LFork -> Grin.SApp "idris_fork" ps
+  {-
   LPar -> undefined -- evaluate argument anywhere, possibly on another -- core or another machine. 'id' is a valid implementation
-  LExternal nm -> case ps of
-    []  -> SReturn Unit
-    [p] -> Grin.SApp "_prim_int_add" $ [Lit (LInt64 5), p]
-    _   -> Grin.SApp "_prim_int_add" $ (take 2 ps)  -- TODO: Fix String
   -}
   LCrash -> Grin.SApp "idris_crash" ps
   {-
@@ -466,15 +555,11 @@ idrisOptimizations o =
       ]
     else []
 
--- TODO: Introduce our own value representation
-evalPlugin :: EvalPlugin Lit
-evalPlugin = EvalPlugin
-  { evalPluginPrimOp  = evalPrimOp
-  , evalPluginLiteral = id
-  }
-
-postProcessing :: Options -> [PipelineStep]
-postProcessing opt = concat
-  [ [ (if (outputGrin opt) then SaveGrin else (SaveExecutable (debugSymbols opt))) $ Abs $ output opt ]
-  , [ PureEvalPlugin evalPlugin | evalGrin opt ]
-  ]
+createPostProcessing :: IO (Options -> [PipelineStep])
+createPostProcessing = do
+  buffer <- createBuffer
+  let evalPlugin = EvalPlugin { evalPluginPrimOp = evalPrimOp buffer }
+  pure $ \opt -> concat
+    [ [ (if (outputGrin opt) then SaveGrin else (SaveExecutable (debugSymbols opt))) $ Abs $ output opt ]
+    , [ PureEvalPlugin evalPlugin | evalGrin opt ]
+    ]

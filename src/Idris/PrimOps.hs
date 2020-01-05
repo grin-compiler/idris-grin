@@ -16,6 +16,19 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_time          :: T_Int64
     _prim_usleep        :: T_Int64  -> T_Unit
     _prim_crash         :: T_String -> T_Unit
+    _prim_new_buffer    :: T_Int64  -> T_Word64 -- TODO: Ptr
+    _prim_set_buffer_byte   :: T_Word64 -> T_Int64 -> T_Word64 -> T_Unit -- TODO: Ptr
+    _prim_set_buffer_string :: T_Word64 -> T_Int64 -> T_String -> T_Unit -- TODO: Ptr
+    _prim_copy_buffer   :: T_Word64 -> T_Int64 -> T_Int64 -> T_Word64 -> T_Int64 -> T_Unit -- TODO: Ptr
+    _prim_write_buffer  :: T_Word64 -> T_Word64 -> T_Int64 -> T_Int64 -> T_Unit -- TODO: Ptr
+    _prim_file_close    :: T_Word64 -> T_Unit -- TODO: Ptr
+    _prim_read_buffer   :: T_Word64 -> T_Word64 -> T_Int64 -> T_Int64 -> T_Int64 -- TODO: Ptr
+
+  -- These are effectful primitives, but we can optimise them away, if nothing
+  -- depends on them
+  ffi pure
+    _prim_get_buffer_byte   :: T_Word64 -> T_Int64 -> T_Word64 -- TODO: Ptr
+    _prim_file_open         :: T_String -> T_String -> T_Word64 -- TODO: Ptr
 
   -- Everything that handles Strings are FFI implemented now.
   ffi pure
@@ -32,7 +45,6 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_string_index   :: T_String -> T_Int64
     _prim_string_head    :: T_String -> T_Int64
 
-  ffi pure
     -- Conversion
     _prim_int_str       :: T_Int64  -> T_String
     _prim_str_int       :: T_String -> T_Int64
@@ -100,6 +112,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     -- Bool
     _prim_bool_eq   :: T_Bool -> T_Bool -> T_Bool
     _prim_bool_ne   :: T_Bool -> T_Bool -> T_Bool
+
+  prim__null =
+    -- TODO: Word constants, or constants with primitive type annotations
+    prim__null1 <- _prim_int_word 0
+    pure (CGrPtr prim__null1)
 
   idris_bit8_eq idris_bit8_eq0 idris_bit8_eq1 =
     (CGrBit8 idris_bit8_eq0_1) <- fetch idris_bit8_eq0
@@ -552,15 +569,18 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrInt idris_fileSize2)
 
   idris_fileOpen idris_fileOpen1 idris_fileOpen2 =
-    idris_fileOpen3 <- pure 42 -- TODO: File handler converted to (Void *) ptr
-    pure (CGrPtr idris_fileOpen3)
+    (CGrString idris_fileOpen3) <- fetch idris_fileOpen1
+    (CGrString idris_fileOpen4) <- fetch idris_fileOpen2
+    idris_fileOpen5 <- _prim_file_open idris_fileOpen3 idris_fileOpen4
+    pure (CGrPtr idris_fileOpen5)
 
   idris_fileError idris_fileError1 =
-    idris_fileError2 <- pure 0 -- TODO: Call ferror
+    idris_fileError2 <- _prim_int_word 0 -- TODO: Call ferror
     pure (CGrPtr idris_fileError2)
 
   idris_fileClose idris_fileClose1 =
-    idris_fileClose2 <- pure 0 -- TODO: Call fclose
+    (CGrPtr idris_fileClose2) <- fetch idris_fileClose1
+    idris_fileClose3 <- _prim_file_close idris_fileClose2
     pure (CGrVoid)
 
   idris_addToString idris_addToString1 idris_addToString2 =
@@ -582,10 +602,13 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrPtr idris_makeStringBuffer2)
 
   isNull isNull1 =
-    -- TODO: Implement isNull check
-    (CGrPtr isNull1_0) <- fetch isNull1
-    isNull2 <- pure 0
-    pure (CGrInt isNull2)
+    (CGrPtr isNull2) <- fetch isNull1
+    isNull6 <- _prim_int_word 0
+    isNull3 <- _prim_word_eq isNull2 isNull6
+    isNull4 <- case isNull3 of
+      #False -> pure 0
+      #True  -> pure 1
+    pure (CGrInt isNull4)
 
   idris_bit64_mul idris_bit64_mul1 idris_bit64_mul2 =
     (CGrBit64 idris_bit64_mul3) <- fetch idris_bit64_mul1
@@ -597,15 +620,278 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CErrorNo)
 
   prim__stdin =
-    pure (CGrInt 0)
+    prim__stdin1 <- _prim_int_word 0
+    pure (CGrWord prim__stdin1)
 
   prim__stdout =
-    pure (CGrInt 1)
+    prim__stdout1 <- _prim_int_word 1
+    pure (CGrWord prim__stdout1)
 
   prim__stderr =
-    pure (CGrInt 2)
+    prim__stderr1 <- _prim_int_word 2
+    pure (CGrWord prim__stderr1)
+
+  prim__vm prim__vm1 =
+    -- TODO: Figure this out properly
+    prim__vm2 <- fetch prim__vm1
+    -- Pointer of VM
+    pure (CGrVM)
+
+  prim__writeFile prim__writeFile1 prim__writeFile2 prim__writeFile3 =
+    (CGrUndefined1) <- fetch prim__writeFile1
+    (CGrUndefined2) <- fetch prim__writeFile2
+    (CGrUndefined3) <- fetch prim__writeFile3
+    pure (CGrUndefined4)
+
+  idris_newBuffer idris_newBuffer1 idris_newBuffer2 =
+    (CGrVM) <- fetch idris_newBuffer1
+    (CGrInt idris_newBuffer3) <- fetch idris_newBuffer2
+    idris_newBuffer4 <- _prim_new_buffer idris_newBuffer3
+    pure (CGrPtr idris_newBuffer4)
+
+  idris_newRef idris_newRef1 =
+    (CGrUndefined8) <- fetch idris_newRef1
+    pure (CGrUndefined9)
+
+  idris_writeRef idris_writeRef1 idris_writeRef2 =
+    (CGrUndefined10) <- fetch idris_writeRef1
+    (CGrUndefined11) <- fetch idris_writeRef2
+    pure (CGrUndefined12)
+
+  idris_copyBuffer idris_copyBuffer1 idris_copyBuffer2 idris_copyBuffer3 idris_copyBuffer4 idris_copyBuffer5 =
+    (CGrPtr idris_copyBuffer6)  <- fetch idris_copyBuffer1
+    (CGrInt idris_copyBuffer7)  <- fetch idris_copyBuffer2
+    (CGrInt idris_copyBuffer8)  <- fetch idris_copyBuffer3
+    (CGrPtr idris_copyBuffer9)  <- fetch idris_copyBuffer4
+    (CGrInt idris_copyBuffer10) <- fetch idris_copyBuffer5
+    idris_copyBuffer11 <- _prim_copy_buffer idris_copyBuffer6 idris_copyBuffer7 idris_copyBuffer8 idris_copyBuffer9 idris_copyBuffer10
+    pure (CGrUnit)
+
+  idris_getBufferByte idris_getBufferByte1 idris_getBufferByte2 =
+    (CGrPtr idris_getBufferByte3) <- fetch idris_getBufferByte1
+    (CGrInt idris_getBufferByte4) <- fetch idris_getBufferByte2
+    idris_getBufferByte5 <- _prim_get_buffer_byte idris_getBufferByte3 idris_getBufferByte4
+    pure (CGrBit8 idris_getBufferByte5)
+
+  idris_getBufferDouble idris_getBufferDouble1 idris_getBufferDouble2 =
+    (CGrUndefined22) <- fetch idris_getBufferDouble1
+    (CGrUndefined23) <- fetch idris_getBufferDouble2
+    pure (CGrUndefined24)
+
+  fflush fflush1 fflush2 =
+    (CGrUndefined25) <- fetch fflush1
+    (CGrUndefined26) <- fetch fflush2
+    pure (CGrUndefined27)
+
+  exit exit1 =
+    (CGrUndefined28) <- fetch exit1
+    pure (CGrUndefined29)
+
+  idris_freeMsg idris_freeMsg1 =
+    (CGrUndefined30) <- fetch idris_freeMsg1
+    pure (CGrUndefined31)
+
+  free free1 =
+    (CGrUndefined32) <- fetch free1
+    pure (CGrUndefined33)
+
+  idris_showerror idris_showerror1 =
+    (CGrUndefined34) <- fetch idris_showerror1
+    pure (CGrUndefined35)
+
+  idris_numArgs =
+    pure (CGrUndefined36)
+
+  fgetc fgetc1 =
+    (CGrUndefined37) <- fetch fgetc1
+    pure (CGrUndefined38)
+
+  getchar =
+    pure (CGrUndefined39)
+
+  idris_memmove idris_memmove1 idris_memmove2 idris_memmove3 idris_memmove4 idris_memmove5 =
+    (CGrUndefined40) <- fetch idris_memmove1
+    (CGrUndefined41) <- fetch idris_memmove2
+    (CGrUndefined42) <- fetch idris_memmove3
+    (CGrUndefined43) <- fetch idris_memmove4
+    (CGrUndefined44) <- fetch idris_memmove5
+    pure (CGrUndefined45)
+
+  calloc calloc1 calloc2 =
+    (CGrUndefined46) <- fetch calloc1
+    (CGrUndefined47) <- fetch calloc2
+    pure (CGrUndefined48)
+
+  idris_getSender idris_getSender1 =
+    (CGrUndefined49) <- fetch idris_getSender1
+    pure (CGrUndefined50)
+
+  idris_getArg idris_getArg1 =
+    (CGrUndefined51) <- fetch idris_getArg1
+    pure (CGrUndefined52)
+
+  idris_readRef idris_readRef1 =
+    (CGrUndefined53) <- fetch idris_readRef1
+    pure (CGrUndefined54)
+
+  idris_readBuffer idris_readBuffer1 idris_readBuffer2 idris_readBuffer3 idris_readBuffer4 =
+    (CGrPtr idris_readBuffer5) <- fetch idris_readBuffer1
+    (CGrPtr idris_readBuffer6) <- fetch idris_readBuffer2
+    (CGrInt idris_readBuffer7) <- fetch idris_readBuffer3
+    (CGrInt idris_readBuffer8) <- fetch idris_readBuffer4
+    idris_readBuffer9 <- _prim_read_buffer idris_readBuffer5 idris_readBuffer6 idris_readBuffer7 idris_readBuffer8
+    pure (CGrInt idris_readBuffer9)
+
+  idris_getBufferInt idris_getBufferInt1 =
+    (CGrUndefined57) <- fetch idris_getBufferInt1
+    pure (CGrUndefined58)
+
+  putchar putchar1 =
+    (CGrUndefined59) <- fetch putchar1
+    pure (CGrUndefined60)
+
+  idris_memset idris_memset1 =
+    (CGrUndefined61) <- fetch idris_memset1
+    pure (CGrUndefined62)
+
+  idris_getChannel idris_getChannel1 =
+    (CGrUndefined63) <- fetch idris_getChannel1
+    pure (CGrUndefined64)
+
+  idris_setBufferByte idris_setBufferByte1 idris_setBufferByte2 idris_setBufferByte3 =
+    -- TODO: Convert Ptr to ManagedPtr?
+    (CGrPtr   idris_setBufferByte4) <- fetch idris_setBufferByte1
+    (CGrInt   idris_setBufferByte5) <- fetch idris_setBufferByte2
+    (CGrBit8  idris_setBufferByte6) <- fetch idris_setBufferByte3
+    idris_setBufferByte7 <- _prim_set_buffer_byte idris_setBufferByte4 idris_setBufferByte5 idris_setBufferByte6
+    pure (CGrUnit)
+
+  idris_getBufferString idris_getBufferString1 idris_getBufferString2 idris_getBufferString3 =
+    (CGrUndefined69) <- fetch idris_getBufferString1
+    (CGrUndefined70) <- fetch idris_getBufferString2
+    (CGrUndefined71) <- fetch idris_getBufferString3
+    pure (CGrUndefined72)
+
+  idris_peek idris_peek1 idris_peek2 =
+    (CGrUndefined73) <- fetch idris_peek1
+    (CGrUndefined74) <- fetch idris_peek2
+    pure (CGrUndefined75)
+
+  idris_recvMessage idris_recvMessage1 =
+    (CGrUndefined76) <- fetch idris_recvMessage1
+    pure (CGrUndefined77)
+
+  idris_checkMessages idris_checkMessages1 =
+    (CGrUndefined78) <- fetch idris_checkMessages1
+    pure (CGrUndefined79)
+
+  idris_setBufferString idris_setBufferString1 idris_setBufferString2 idris_setBufferString3 =
+    (CGrPtr     idris_setBufferString4) <- fetch idris_setBufferString1 -- ManagedPtr
+    (CGrInt     idris_setBufferString5) <- fetch idris_setBufferString2
+    (CGrString  idris_setBufferString6) <- fetch idris_setBufferString3
+    idris_setBufferString7 <- _prim_set_buffer_string idris_setBufferString4 idris_setBufferString5 idris_setBufferString6
+    pure (CGrUnit)
+
+  idris_setBufferDouble idris_setBufferDouble1 idris_setBufferDouble2 idris_setBufferDouble3 =
+    (CGrUndefined84) <- fetch idris_setBufferDouble1
+    (CGrUndefined85) <- fetch idris_setBufferDouble2
+    (CGrUndefined86) <- fetch idris_setBufferDouble3
+    pure (CGrUndefined87)
+
+  idris_poke idris_poke1 idris_poke2 idris_poke3 =
+    (CGrUndefined88) <- fetch idris_poke1
+    (CGrUndefined89) <- fetch idris_poke2
+    (CGrUndefined90) <- fetch idris_poke3
+    pure (CGrUndefined91)
+
+  idris_checkMessagesTimeout idris_checkMessagesTimeout1 idris_checkMessagesTimeout2 =
+    (CGrUndefined92) <- fetch idris_checkMessagesTimeout1
+    (CGrUndefined93) <- fetch idris_checkMessagesTimeout2
+    pure (CGrUndefined94)
+
+  idris_getMsg idris_getMsg1 =
+    (CGrUndefined95) <- fetch idris_getMsg1
+    pure (CGrUndefined96)
+
+  idris_sendMessage idris_sendMessage1 idris_sendMessage2 idris_sendMessage3 idris_sendMessage4 =
+    (CGrUndefined97)  <- fetch idris_sendMessage1
+    (CGrUndefined98)  <- fetch idris_sendMessage2
+    (CGrUndefined99)  <- fetch idris_sendMessage3
+    (CGrUndefined100) <- fetch idris_sendMessage4
+    pure (CGrUndefined101)
+
+  idris_writeBuffer idris_writeBuffer1 idris_writeBuffer2 idris_writeBuffer3 idris_writeBuffer4 =
+    (CGrPtr idris_writeBuffer5) <- fetch idris_writeBuffer1
+    (CGrPtr idris_writeBuffer6) <- fetch idris_writeBuffer2
+    (CGrInt idris_writeBuffer7) <- fetch idris_writeBuffer3
+    (CGrInt idris_writeBuffer8) <- fetch idris_writeBuffer4
+    idris_writeBuffer9 <- _prim_write_buffer idris_writeBuffer5 idris_writeBuffer6 idris_writeBuffer7 idris_writeBuffer8
+    pure (CGrUnit)
+
+  idris_setBufferInt idris_setBufferInt1 idris_setBufferInt2 idris_setBufferInt3 =
+    (CGrUndefined107) <- fetch idris_setBufferInt1
+    (CGrUndefined108) <- fetch idris_setBufferInt2
+    (CGrUndefined109) <- fetch idris_setBufferInt3
+    pure (CGrUndefined110)
+
+  malloc malloc1 =
+    (CGrUndefined111) <- fetch malloc1
+    pure (CGrUndefined112)
+
+  idris_fork idris_fork1 =
+    (CGrUndefined113) <- fetch idris_fork1
+    pure (CGrUndefined113)
 
   grinMain =
     r <- "idr_{runMain_0}"
     pure ()
 |]
+
+
+{-
+Idris Builtin primitives
+
+-- Pointers as external primitive; there's no literals for these, so no
+-- need for them to be part of the compiler.
+
+export data Ptr : Type
+export data ManagedPtr : Type
+export data CData : Type
+
+%extern prim__readFile : prim__WorldType -> Ptr -> String
+%extern prim__readChars : prim__WorldType -> Int -> Ptr -> String
+%extern prim__writeFile : prim__WorldType -> Ptr -> String -> Int
+
+%extern prim__vm : prim__WorldType -> Ptr
+%extern prim__stdin : Ptr
+%extern prim__stdout : Ptr
+%extern prim__stderr : Ptr
+
+%extern prim__null : Ptr
+%extern prim__managedNull : ManagedPtr
+%extern prim__eqPtr : Ptr -> Ptr -> Int
+%extern prim__eqManagedPtr : ManagedPtr -> ManagedPtr -> Int
+%extern prim__registerPtr : Ptr -> Int -> ManagedPtr
+
+-- primitives for accessing memory.
+%extern prim__asPtr : ManagedPtr -> Ptr
+%extern prim__sizeofPtr : Int
+%extern prim__ptrOffset : Ptr -> Int -> Ptr
+%extern prim__peek8 : prim__WorldType -> Ptr -> Int -> Bits8
+%extern prim__peek16 : prim__WorldType -> Ptr -> Int -> Bits16
+%extern prim__peek32 : prim__WorldType -> Ptr -> Int -> Bits32
+%extern prim__peek64 : prim__WorldType -> Ptr -> Int -> Bits64
+
+%extern prim__poke8 : prim__WorldType -> Ptr -> Int -> Bits8 -> Int
+%extern prim__poke16 : prim__WorldType -> Ptr -> Int -> Bits16 -> Int
+%extern prim__poke32 : prim__WorldType -> Ptr -> Int -> Bits32 -> Int
+%extern prim__poke64 : prim__WorldType -> Ptr -> Int -> Bits64 -> Int
+
+%extern prim__peekPtr : prim__WorldType -> Ptr -> Int -> Ptr
+%extern prim__pokePtr : prim__WorldType -> Ptr -> Int -> Ptr -> Int
+
+%extern pri__peekDouble : prim__WorldType -> Ptr -> Int -> Double
+%extern prim__pokeDouble : prim__WorldType -> Ptr -> Int -> Double -> Int
+%extern prim__peekSingle : prim__WorldType -> Ptr -> Int -> Double
+%extern prim__pokeSingle : prim__WorldType -> Ptr -> Int -> Double -> Int
+-}

@@ -33,6 +33,7 @@ library
     , containers
     , functor-infix
     , inline-c
+    , vector
 
   default-language:    Haskell2010
 

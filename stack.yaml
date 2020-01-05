@@ -5,7 +5,7 @@ allow-newer: true
 
 packages:
   - '.'
-  # - '../grin/grin'
+#  - '../grin/grin'
 
 
 extra-deps:
@@ -17,7 +17,7 @@ extra-deps:
   - llvm-hs-pretty-0.6.1.0
 
   - github: grin-compiler/grin
-    commit: 4c747d1e78196d9d2a303c0454a24c1fbaa13261
+    commit: 133441c8db7d2a542db9e27adc1b6466769d7d23
     subdirs:
       - grin
 
