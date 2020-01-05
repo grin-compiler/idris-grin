@@ -71,8 +71,13 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
   "_prim_error"        -> primError
   "_prim_file_open"    -> primFileOpen
   "_prim_file_close"   -> primFileClose
+  "_prim_file_eof"     -> primFileEOF
+  "_prim_stdin"        -> primStdIn
+  "_prim_stdout"       -> primStdOut
+  "_prim_stderr"       -> primStdErr
+
   -- Buffer
-  "_prim_new_buffer"   -> primNewBuffer
+  "_prim_new_buffer"        -> primNewBuffer
   "_prim_set_buffer_byte"   -> primSetBufferByte
   "_prim_set_buffer_string" -> primSetBufferString
   "_prim_get_buffer_byte"   -> primGetBufferByte
@@ -147,8 +152,6 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
   -- Bool
   "_prim_bool_eq"   -> bool_bin_op bool (==)
   "_prim_bool_ne"   -> bool_bin_op bool (/=)
-    -- FFI - TODO: Handle FFI appropiatey
-  "_prim_ffi_file_eof" -> file_eof
 
   _ -> error $ "unknown primitive operation: " ++ unpackName name
  where
@@ -237,10 +240,6 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
         [C.exp| void { snprintf($(char* buf), 32, "%.16g", $(float cf)) } |]
         string . fromString =<< peekCString buf
 
-    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
-
-  file_eof = case args of
-    [RT_Lit (LInt64 0)] -> (fmap (\case { False -> 0; _ -> 1}) (liftIO (hIsEOF stdin))) >>= int
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   primReadString = case args of
@@ -347,6 +346,18 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
       pure RT_Unit
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
+  primStdIn = case args of
+    [] -> pure $ RT_Lit $ LWord64 0
+    _  -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primStdOut = case args of
+    [] -> pure $ RT_Lit $ LWord64 1
+    _  -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primStdErr = case args of
+    [] -> pure $ RT_Lit $ LWord64 2
+    _  -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
   primFileOpen = case args of
     [RT_Lit (LString fileName), RT_Lit (LString mode0)] -> do
       handles <- readIORef handleRef
@@ -367,6 +378,13 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
       modifyIORef handleRef
         $ IntMap.insert newPtr handle
       pure $ RT_Lit $ LWord64 $ fromIntegral newPtr
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primFileEOF = case args of
+    [RT_Lit (LWord64 filePtr)] -> do
+      handle <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      eof <- hIsEOF handle
+      pure $ RT_Lit $ LInt64 $ case eof of { True -> 1; False -> 0 }
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   primFileClose = case args of

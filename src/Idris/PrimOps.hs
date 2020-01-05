@@ -12,7 +12,6 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_string_print  :: T_String -> T_Unit
     _prim_read_string   :: T_String
     _prim_error         :: T_String -> T_Unit
-    _prim_ffi_file_eof  :: T_Int64  -> T_Int64
     _prim_time          :: T_Int64
     _prim_usleep        :: T_Int64  -> T_Unit
     _prim_crash         :: T_String -> T_Unit
@@ -23,6 +22,10 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_write_buffer  :: T_Word64 -> T_Word64 -> T_Int64 -> T_Int64 -> T_Unit -- TODO: Ptr
     _prim_file_close    :: T_Word64 -> T_Unit -- TODO: Ptr
     _prim_read_buffer   :: T_Word64 -> T_Word64 -> T_Int64 -> T_Int64 -> T_Int64 -- TODO: Ptr
+    _prim_file_eof      :: T_Word64 -> T_Int64
+    _prim_stdin         :: T_Word64 -- TODO: Ptr
+    _prim_stdout        :: T_Word64 -- TODO: Ptr
+    _prim_stderr        :: T_Word64 -- TODO: Ptr
 
   -- These are effectful primitives, but we can optimise them away, if nothing
   -- depends on them
@@ -474,8 +477,8 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrFloat idris_float_atan2_5)
 
   idris_ffi_file_eof idris_ffi_file_eof1 =
-    (CGrInt idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
-    idris_ffi_file_eof2 <- _prim_ffi_file_eof idris_ffi_file_eof1_0
+    (CGrBit64 idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
+    idris_ffi_file_eof2 <- _prim_file_eof idris_ffi_file_eof1_0
     pure (CGrInt idris_ffi_file_eof2)
 
   idris_lz_ext_int_bit64 idris_lz_ext_int_bit64_1 =
@@ -620,16 +623,16 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CErrorNo)
 
   prim__stdin =
-    prim__stdin1 <- _prim_int_word 0
-    pure (CGrWord prim__stdin1)
+    prim__stdin1 <- _prim_stdin
+    pure (CGrBit64 prim__stdin1)
 
   prim__stdout =
-    prim__stdout1 <- _prim_int_word 1
-    pure (CGrWord prim__stdout1)
+    prim__stdout1 <- _prim_stdout
+    pure (CGrBit64 prim__stdout1)
 
   prim__stderr =
-    prim__stderr1 <- _prim_int_word 2
-    pure (CGrWord prim__stderr1)
+    prim__stderr1 <- _prim_stderr
+    pure (CGrBit64 prim__stderr1)
 
   prim__vm prim__vm1 =
     -- TODO: Figure this out properly
