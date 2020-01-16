@@ -10,4 +10,4 @@ count (S k) ref
 
 main : IO ()
 main = do r <- newIORef 0
-          count 1000000 r
+          count 100 r

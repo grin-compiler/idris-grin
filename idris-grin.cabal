@@ -34,6 +34,7 @@ library
     , functor-infix
     , inline-c
     , vector
+    , floating-bits
 
   default-language:    Haskell2010
 

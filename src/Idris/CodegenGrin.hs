@@ -37,11 +37,26 @@ import Idris.PrimOps
 import Idris.EvalPrimOp
 
 {-
-TODO:
- * Implement appropiate primitive ops
- * Optimization transformation that removed empty defaults, like pure ()
- * Implement String primitives
- * Reenable compilation at the end
+PLAN
+[ ] Implement primitive operations
+    [ ] Use Double instead of Float
+    [ ] Arithmetic for Integer types
+    [ ] Handle BIG Integers
+    [ ] Implement IORef with parametric primitives
+[ ] Implement C FFI
+    [ ] Mapping C types to Idris Tagged types
+    [ ] Compilation of C files
+    [ ] Linking libraries
+    [ ] Re-implement parts of the Idris runtime
+[ ] Extend GRIN with LLVM primitives
+[ ] Implement appropriate String handling
+[ ] Extend Idris-GRIN LLVM codegen
+[ ] Memory management
+    [ ] Counting immutable beans
+    [ ] Simple Garbage Collector
+[ ] Compile Idris2
+[ ] Explore Idris related transformations
+[ ] Threading should be a GRIN primitive
 -}
 
 data Options = Options

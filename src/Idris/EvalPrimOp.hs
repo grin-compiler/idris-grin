@@ -29,6 +29,10 @@ import Grin.Grin
 import Reducer.Base
 import System.IO
 import System.IO.Unsafe
+import Data.Bits.Floating
+import Data.Int
+import Data.Maybe (fromMaybe)
+import Control.Monad (when, mzero)
 
 import qualified Data.Text as Text
 import qualified Data.Vector as Vector
@@ -75,12 +79,18 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
   "_prim_stdin"        -> primStdIn
   "_prim_stdout"       -> primStdOut
   "_prim_stderr"       -> primStdErr
+  "_prim_putChar"      -> primPutchar
 
   -- Buffer
   "_prim_new_buffer"        -> primNewBuffer
   "_prim_set_buffer_byte"   -> primSetBufferByte
   "_prim_set_buffer_string" -> primSetBufferString
+  "_prim_set_buffer_int"    -> primSetBufferInt
+  "_prim_set_buffer_double" -> primSetBufferDouble
   "_prim_get_buffer_byte"   -> primGetBufferByte
+  "_prim_get_buffer_int"    -> primGetBufferInt
+  "_prim_get_buffer_double" -> primGetBufferDouble
+  "_prim_get_buffer_string" -> primGetBufferString
   "_prim_copy_buffer"       -> primCopyBuffer
   "_prim_write_buffer"      -> primWriteBuffer
   "_prim_read_buffer"       -> primReadBuffer
@@ -91,6 +101,7 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
   "_prim_float_int"    -> float_int
   "_prim_float_string" -> float_str
   "_prim_char_int"     -> char_int
+  "_prim_int_char"     -> int_char
   "_prim_int_word"     -> int_word
   "_prim_word_int"     -> word_int
   "_prim_word_word"    -> word_word
@@ -160,7 +171,7 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
   float x = pure . RT_Lit . LFloat $ x
   bool  x = pure . RT_Lit . LBool $ x
   string x = pure . RT_Lit . LString $ x
---  char x = pure . RT_Lit . LChar $ x
+  char x = pure . RT_Lit . LChar $ x
 
   int_un_op retTy fn = case args of
     [RT_Lit (LInt64 a)] -> retTy $ fn a
@@ -216,6 +227,10 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
 
   char_int = case args of
     [RT_Lit (LChar a)] -> int . fromIntegral . ord $ a
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  int_char = case args of
+    [RT_Lit (LInt64 a)] -> char . chr $ fromIntegral a
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   int_word = case args of
@@ -291,11 +306,74 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
       pure $ RT_Unit
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
+  primSetBufferInt = case args of
+    [RT_Lit (LWord64 idx), RT_Lit (LInt64 loc), RT_Lit (LInt64 int)] -> do
+      let (b1, b2, b3, b4) = int64toBytes int
+      modifyIORef bufferRef
+        $ IntMap.adjust
+            (\v -> v Vector.//
+              [ (fromIntegral loc + 0, b1)
+              , (fromIntegral loc + 1, b2)
+              , (fromIntegral loc + 2, b3)
+              , (fromIntegral loc + 3, b4)
+              ])
+            (fromIntegral idx)
+      pure $ RT_Unit
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primSetBufferDouble = case args of
+    [RT_Lit (LWord64 idx), RT_Lit (LInt64 loc), RT_Lit (LFloat float)] -> do
+      let (b1, b2, b3, b4) = doubleToBytes $ realToFrac float
+      modifyIORef bufferRef
+        $ IntMap.adjust
+            (\v -> v Vector.//
+              [ (fromIntegral loc + 0, b1)
+              , (fromIntegral loc + 1, b2)
+              , (fromIntegral loc + 2, b3)
+              , (fromIntegral loc + 3, b4)
+              ])
+            (fromIntegral idx)
+      pure $ RT_Unit
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+
   primGetBufferByte = case args of
     [RT_Lit (LWord64 idx), RT_Lit (LInt64 loc)] -> do
       buffer <- readIORef bufferRef
-      pure $ RT_Lit $ LWord64 $ fromIntegral $ (buffer IntMap.! (fromIntegral idx)) Vector.! (fromIntegral loc)
+      pure $ RT_Lit $ LWord64 $ fromIntegral $ fromMaybe 0 $ (buffer IntMap.! (fromIntegral idx)) Vector.!? (fromIntegral loc)
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primGetBufferInt = case args of
+    [RT_Lit (LWord64 idx), RT_Lit (LInt64 loc)] -> do
+      buffer <- readIORef bufferRef
+      pure $ RT_Lit $ LInt64 $ fromMaybe 0 $ do
+        buffer0 <- IntMap.lookup (fromIntegral idx) buffer
+        b1 <- buffer0 Vector.!? (fromIntegral loc + 0)
+        b2 <- buffer0 Vector.!? (fromIntegral loc + 1)
+        b3 <- buffer0 Vector.!? (fromIntegral loc + 2)
+        b4 <- buffer0 Vector.!? (fromIntegral loc + 3)
+        pure $ bytesToInt64 (b1,b2,b3,b4)
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primGetBufferDouble = case args of
+    [RT_Lit (LWord64 idx), RT_Lit (LInt64 loc)] -> do
+      buffer <- readIORef bufferRef
+      pure $ RT_Lit $ LFloat $ fromMaybe 0.0 $ do
+        buffer0 <- IntMap.lookup (fromIntegral idx) buffer
+        b1 <- buffer0 Vector.!? (fromIntegral loc + 0)
+        b2 <- buffer0 Vector.!? (fromIntegral loc + 1)
+        b3 <- buffer0 Vector.!? (fromIntegral loc + 2)
+        b4 <- buffer0 Vector.!? (fromIntegral loc + 3)
+        pure $ realToFrac $ bytesToDouble (b1,b2,b3,b4)
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primGetBufferString = case args of
+    [RT_Lit (LWord64 idx), RT_Lit (LInt64 loc), RT_Lit (LInt64 len)] -> do
+      buffer <- readIORef bufferRef
+      pure $ RT_Lit $ LString $ fromString $ fromMaybe "" $ do
+        buffer0 <- IntMap.lookup (fromIntegral idx) buffer
+        when (Vector.length buffer0 < fromIntegral (loc + len)) mzero
+        mapM (fmap (chr . fromIntegral) . (buffer0 Vector.!?) . fromIntegral) [loc .. loc + len - 1]
 
   primCopyBuffer = case args of
     [RT_Lit (LWord64 idxfrom), RT_Lit (LInt64 locfrom), RT_Lit (LInt64 len), RT_Lit (LWord64 idxto), RT_Lit (LInt64 locto) ]
@@ -358,6 +436,12 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
     [] -> pure $ RT_Lit $ LWord64 2
     _  -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
+  primPutchar = case args of
+    [RT_Lit (LChar c)] -> do
+      putChar c
+      pure RT_Unit
+    _  -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
   primFileOpen = case args of
     [RT_Lit (LString fileName), RT_Lit (LString mode0)] -> do
       handles <- readIORef handleRef
@@ -399,3 +483,37 @@ evalPrimOp (EvalReferences bufferRef handleRef) name params args = case name of
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   boolean f t x = if x then t else f
+
+word64toBytes :: Word64 -> (Word8, Word8, Word8, Word8)
+word64toBytes w =
+  ( fromIntegral $ w .&. 0x000000FF
+  , fromIntegral $ shift (w .&. 0x0000FF00) (-8)
+  , fromIntegral $ shift (w .&. 0x00FF0000) (-16)
+  , fromIntegral $ shift (w .&. 0xFF000000) (-24)
+  )
+
+int64toBytes :: Int64 -> (Word8, Word8, Word8, Word8)
+int64toBytes w =
+  ( fromIntegral $ w .&. 0x000000FF
+  , fromIntegral $ shift (w .&. 0x0000FF00) (-8)
+  , fromIntegral $ shift (w .&. 0x00FF0000) (-16)
+  , fromIntegral $ shift (w .&. 0xFF000000) (-24)
+  )
+
+bytesToInt64 :: (Word8, Word8, Word8, Word8) -> Int64
+bytesToInt64 (b1, b2, b3, b4)
+  = (fromIntegral b1)
+    + shift (fromIntegral b2) 8
+    + shift (fromIntegral b3) 16
+    + shift (fromIntegral b4) 24
+
+doubleToBytes :: Double -> (Word8, Word8, Word8, Word8)
+doubleToBytes = word64toBytes . coerceToWord
+
+bytesToDouble :: (Word8, Word8, Word8, Word8) -> Double
+bytesToDouble (b1, b2, b3, b4)
+  = coerceToFloat $ zeroBits
+    .|. (fromIntegral b1)
+    .|. shift (fromIntegral b2) 8
+    .|. shift (fromIntegral b3) 16
+    .|. shift (fromIntegral b4) 24

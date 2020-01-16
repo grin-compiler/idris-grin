@@ -15,6 +15,7 @@ extra-deps:
   - cheapskate-0.1.1.1
   - set-extra-1.4.1
   - llvm-hs-pretty-0.6.1.0
+  - floating-bits-0.3.0.0
 
   - github: grin-compiler/grin
     commit: 133441c8db7d2a542db9e27adc1b6466769d7d23

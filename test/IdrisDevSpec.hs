@@ -64,7 +64,7 @@ spec = do
     it "test/idris-dev/basic015/basic015.idr" $ testBackend "test/idris-dev/basic015/basic015.idr"
     it "test/idris-dev/basic019/basic019.idr" $ testBackend "test/idris-dev/basic019/basic019.idr"
     it "test/idris-dev/basic020/basic020.idr" $ testBackend "test/idris-dev/basic020/basic020.idr"
-    it "test/idris-dev/basic021/basic021.idr" $ testBackend "test/idris-dev/basic021/basic021.idr"
+    xit "test/idris-dev/basic021/basic021.idr" $ testBackend "test/idris-dev/basic021/basic021.idr"
     it "test/idris-dev/basic021/basic021_2.idr" $ testBackend "test/idris-dev/basic021/basic021_2.idr"
     it "test/idris-dev/basic023/sections.idr" $ testBackend "test/idris-dev/basic023/sections.idr"
     it "test/idris-dev/basic025/basic025.idr" $ testBackend "test/idris-dev/basic025/basic025.idr"

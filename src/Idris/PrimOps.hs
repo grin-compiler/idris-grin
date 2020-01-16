@@ -8,6 +8,13 @@ import Grin.PrimOpsPrelude
 
 idrisPrimOps = withPrimPrelude [progConst|
   ffi effectful
+    -- Solve HPT for the %ref variables, variables should refer to the
+    -- same values, context dependent or independent
+    _prim_new_ref       :: %ref -> T_Word64           -- TODO: Ptr
+    _prim_write_ref     :: T_Word64 -> %ref -> T_Unit -- TODO: Ptr
+    _prim_read_ref      :: T_Word64 -> %ref           -- TODO: Ptr
+
+  ffi effectful
     _prim_int_print     :: T_Int64  -> T_Unit
     _prim_string_print  :: T_String -> T_Unit
     _prim_read_string   :: T_String
@@ -18,6 +25,8 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_new_buffer    :: T_Int64  -> T_Word64 -- TODO: Ptr
     _prim_set_buffer_byte   :: T_Word64 -> T_Int64 -> T_Word64 -> T_Unit -- TODO: Ptr
     _prim_set_buffer_string :: T_Word64 -> T_Int64 -> T_String -> T_Unit -- TODO: Ptr
+    _prim_set_buffer_int    :: T_Word64 -> T_Int64 -> T_Int64  -> T_Unit -- TODO: Ptr
+    _prim_set_buffer_double :: T_Word64 -> T_Int64 -> T_Float  -> T_Unit -- TODO: Ptr
     _prim_copy_buffer   :: T_Word64 -> T_Int64 -> T_Int64 -> T_Word64 -> T_Int64 -> T_Unit -- TODO: Ptr
     _prim_write_buffer  :: T_Word64 -> T_Word64 -> T_Int64 -> T_Int64 -> T_Unit -- TODO: Ptr
     _prim_file_close    :: T_Word64 -> T_Unit -- TODO: Ptr
@@ -26,11 +35,15 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_stdin         :: T_Word64 -- TODO: Ptr
     _prim_stdout        :: T_Word64 -- TODO: Ptr
     _prim_stderr        :: T_Word64 -- TODO: Ptr
+    _prim_putchar       :: T_Char -> T_Unit
 
   -- These are effectful primitives, but we can optimise them away, if nothing
   -- depends on them
   ffi pure
     _prim_get_buffer_byte   :: T_Word64 -> T_Int64 -> T_Word64 -- TODO: Ptr
+    _prim_get_buffer_int    :: T_Word64 -> T_Int64 -> T_Int64  -- TODO: Ptr
+    _prim_get_buffer_double :: T_Word64 -> T_Int64 -> T_Float  -- TODO: Ptr
+    _prim_get_buffer_string :: T_Word64 -> T_Int64 -> T_Int64 -> T_String
     _prim_file_open         :: T_String -> T_String -> T_Word64 -- TODO: Ptr
 
   -- Everything that handles Strings are FFI implemented now.
@@ -63,6 +76,7 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_int_int       :: T_Int64  -> T_Int64
     _prim_word_word     :: T_Word64 -> T_Word64
     _prim_word_int      :: T_Word64 -> T_Int64
+    _prim_int_char      :: T_Int64  -> T_Char
 
   primop pure
     -- Int
@@ -653,13 +667,20 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrPtr idris_newBuffer4)
 
   idris_newRef idris_newRef1 =
-    (CGrUndefined8) <- fetch idris_newRef1
-    pure (CGrUndefined9)
+    idris_newRef2 <- fetch idris_newRef1
+    idris_newRef3 <- _prim_new_ref idris_newRef2
+    pure (CGrRef idris_newRef3)
+
+  idris_readRef idris_readRef1 =
+    (CGrRef idris_readRef2) <- fetch idris_readRef1
+    idris_readRef3 <- _prim_read_ref idris_readRef2
+    pure idris_readRef3
 
   idris_writeRef idris_writeRef1 idris_writeRef2 =
-    (CGrUndefined10) <- fetch idris_writeRef1
-    (CGrUndefined11) <- fetch idris_writeRef2
-    pure (CGrUndefined12)
+    (CGrRef idris_writeRef3) <- fetch idris_writeRef1
+    idris_writeRef4 <- fetch idris_writeRef2
+    idris_writeRef5 <- _prim_write_ref idris_writeRef3 idris_writeRef4
+    pure (CGrUnit)
 
   idris_copyBuffer idris_copyBuffer1 idris_copyBuffer2 idris_copyBuffer3 idris_copyBuffer4 idris_copyBuffer5 =
     (CGrPtr idris_copyBuffer6)  <- fetch idris_copyBuffer1
@@ -677,9 +698,10 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrBit8 idris_getBufferByte5)
 
   idris_getBufferDouble idris_getBufferDouble1 idris_getBufferDouble2 =
-    (CGrUndefined22) <- fetch idris_getBufferDouble1
-    (CGrUndefined23) <- fetch idris_getBufferDouble2
-    pure (CGrUndefined24)
+    (CGrPtr idris_getBufferDouble3) <- fetch idris_getBufferDouble1
+    (CGrInt idris_getBufferDouble4) <- fetch idris_getBufferDouble2
+    idris_getBufferDouble5 <- _prim_get_buffer_double idris_getBufferDouble3 idris_getBufferDouble4
+    pure (CGrFloat idris_getBufferDouble5)
 
   fflush fflush1 fflush2 =
     (CGrUndefined25) <- fetch fflush1
@@ -733,10 +755,6 @@ idrisPrimOps = withPrimPrelude [progConst|
     (CGrUndefined51) <- fetch idris_getArg1
     pure (CGrUndefined52)
 
-  idris_readRef idris_readRef1 =
-    (CGrUndefined53) <- fetch idris_readRef1
-    pure (CGrUndefined54)
-
   idris_readBuffer idris_readBuffer1 idris_readBuffer2 idris_readBuffer3 idris_readBuffer4 =
     (CGrPtr idris_readBuffer5) <- fetch idris_readBuffer1
     (CGrPtr idris_readBuffer6) <- fetch idris_readBuffer2
@@ -745,13 +763,17 @@ idrisPrimOps = withPrimPrelude [progConst|
     idris_readBuffer9 <- _prim_read_buffer idris_readBuffer5 idris_readBuffer6 idris_readBuffer7 idris_readBuffer8
     pure (CGrInt idris_readBuffer9)
 
-  idris_getBufferInt idris_getBufferInt1 =
-    (CGrUndefined57) <- fetch idris_getBufferInt1
-    pure (CGrUndefined58)
+  idris_getBufferInt idris_getBufferInt1 idris_getBufferInt2 =
+    (CGrPtr idris_getBufferInt3) <- fetch idris_getBufferInt1
+    (CGrInt idris_getBufferInt4) <- fetch idris_getBufferInt2
+    idris_getBufferInt5 <- _prim_get_buffer_int idris_getBufferInt3 idris_getBufferInt4
+    pure (CGrInt idris_getBufferInt5)
 
   putchar putchar1 =
-    (CGrUndefined59) <- fetch putchar1
-    pure (CGrUndefined60)
+    (CGrInt putchar2) <- fetch putchar1
+    putchar3 <- _prim_int_char putchar2
+    putchar4 <- _prim_putchar putchar3
+    pure (CGrUnit)
 
   idris_memset idris_memset1 =
     (CGrUndefined61) <- fetch idris_memset1
@@ -770,10 +792,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUnit)
 
   idris_getBufferString idris_getBufferString1 idris_getBufferString2 idris_getBufferString3 =
-    (CGrUndefined69) <- fetch idris_getBufferString1
-    (CGrUndefined70) <- fetch idris_getBufferString2
-    (CGrUndefined71) <- fetch idris_getBufferString3
-    pure (CGrUndefined72)
+    (CGrPtr idris_getBufferString4) <- fetch idris_getBufferString1
+    (CGrInt idris_getBufferString5) <- fetch idris_getBufferString2
+    (CGrInt idris_getBufferString6) <- fetch idris_getBufferString3
+    idris_getBufferString7 <- _prim_get_buffer_string idris_getBufferString4 idris_getBufferString5 idris_getBufferString6
+    pure (CGrString idris_getBufferString7)
 
   idris_peek idris_peek1 idris_peek2 =
     (CGrUndefined73) <- fetch idris_peek1
@@ -796,10 +819,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUnit)
 
   idris_setBufferDouble idris_setBufferDouble1 idris_setBufferDouble2 idris_setBufferDouble3 =
-    (CGrUndefined84) <- fetch idris_setBufferDouble1
-    (CGrUndefined85) <- fetch idris_setBufferDouble2
-    (CGrUndefined86) <- fetch idris_setBufferDouble3
-    pure (CGrUndefined87)
+    (CGrPtr idris_setBufferDouble4) <- fetch idris_setBufferDouble1
+    (CGrInt idris_setBufferDouble5) <- fetch idris_setBufferDouble2
+    (CGrFloat idris_setBufferDouble6) <- fetch idris_setBufferDouble3
+    idris_setBufferDouble7 <- _prim_set_buffer_double idris_setBufferDouble4 idris_setBufferDouble5 idris_setBufferDouble6
+    pure (CGrUnit)
 
   idris_poke idris_poke1 idris_poke2 idris_poke3 =
     (CGrUndefined88) <- fetch idris_poke1
@@ -832,10 +856,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUnit)
 
   idris_setBufferInt idris_setBufferInt1 idris_setBufferInt2 idris_setBufferInt3 =
-    (CGrUndefined107) <- fetch idris_setBufferInt1
-    (CGrUndefined108) <- fetch idris_setBufferInt2
-    (CGrUndefined109) <- fetch idris_setBufferInt3
-    pure (CGrUndefined110)
+    (CGrPtr idris_setBufferInt4) <- fetch idris_setBufferInt1
+    (CGrInt idris_setBufferInt5) <- fetch idris_setBufferInt2
+    (CGrInt idris_setBufferInt6) <- fetch idris_setBufferInt3
+    idris_setBufferInt7 <- _prim_set_buffer_int idris_setBufferInt4 idris_setBufferInt5 idris_setBufferInt6
+    pure (CGrUnit)
 
   malloc malloc1 =
     (CGrUndefined111) <- fetch malloc1

@@ -20,6 +20,9 @@ spec = do
     pure $ maybe [NonOptimisedEval, OptimisedEval, Compiled] (const [NonOptimisedEval]) env
     -- pure [NonOptimisedEval]
 
+  describe "In focus" $ do
+    pure ()
+
   when True $ describe "Idris and Grin matches for:" $ forM_ modes $ \mode -> describe (show mode) $ do
     it "TDD 01 - 01 Hello World" $ timed $ idris mode 600 "test/tdd/chapter01/01_HelloWorld.idr"
     it "TDD 01 - 02 CalcType" $ timed $ idris mode 600 "test/tdd/chapter01/02_CalcType.idr"
