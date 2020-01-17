@@ -10,9 +10,15 @@ idrisPrimOps = withPrimPrelude [progConst|
   ffi effectful
     -- Solve HPT for the %ref variables, variables should refer to the
     -- same values, context dependent or independent
-    _prim_new_ref       :: %ref -> T_Word64           -- TODO: Ptr
-    _prim_write_ref     :: T_Word64 -> %ref -> T_Unit -- TODO: Ptr
-    _prim_read_ref      :: T_Word64 -> %ref           -- TODO: Ptr
+    _prim_new_ref   :: %ref -> T_Word64           -- TODO: Ptr
+    _prim_write_ref :: T_Word64 -> %ref -> T_Unit -- TODO: Ptr
+    _prim_read_ref  :: T_Word64 -> %ref           -- TODO: Ptr
+    _prim_malloc    :: T_Int64 -> T_Word64 -- Ptr
+    _prim_poke      :: T_Word64 -> T_Int64 -> T_Word64 -> T_Unit -- Ptr, Word8
+    _prim_peek      :: T_Word64 -> T_Int64 -> T_Word64 -- Ptr, Word8
+    _prim_memset    :: T_Word64 -> T_Int64 -> T_Word64 -> T_Int64 -> T_Unit -- Ptr, Word8
+    _prim_memmove   :: T_Word64 -> T_Word64 -> T_Int64 -> T_Int64 -> T_Int64 -> T_Unit -- Ptr, Ptr
+    _prim_free      :: T_Word64 -> T_Unit -- Ptr
 
   ffi effectful
     _prim_int_print     :: T_Int64  -> T_Unit
@@ -546,7 +552,7 @@ idrisPrimOps = withPrimPrelude [progConst|
 
   idris_ltrunc_int_bit8 idris_ltrunc_int_bit8_1 =
     (CGrInt idris_ltrunc_int_bit8_2) <- fetch idris_ltrunc_int_bit8_1
-    idris_ltrunc_int_bit8_3 <- _prim_int_word
+    idris_ltrunc_int_bit8_3 <- _prim_int_word idris_ltrunc_int_bit8_2
     pure (CGrBit8 idris_ltrunc_int_bit8_3)
 
   idris_ltrunc_big_bit64 idris_ltrunc_big_bit64_1 =
@@ -717,8 +723,9 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUndefined31)
 
   free free1 =
-    (CGrUndefined32) <- fetch free1
-    pure (CGrUndefined33)
+    (CGrPtr free2) <- fetch free1
+    free3 <- _prim_free free2
+    pure (CGrUnit)
 
   idris_showerror idris_showerror1 =
     (CGrUndefined34) <- fetch idris_showerror1
@@ -735,12 +742,13 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUndefined39)
 
   idris_memmove idris_memmove1 idris_memmove2 idris_memmove3 idris_memmove4 idris_memmove5 =
-    (CGrUndefined40) <- fetch idris_memmove1
-    (CGrUndefined41) <- fetch idris_memmove2
-    (CGrUndefined42) <- fetch idris_memmove3
-    (CGrUndefined43) <- fetch idris_memmove4
-    (CGrUndefined44) <- fetch idris_memmove5
-    pure (CGrUndefined45)
+    (CGrPtr idris_memmove6) <- fetch idris_memmove1 -- Destination
+    (CGrPtr idris_memmove7) <- fetch idris_memmove2 -- Source
+    (CGrInt idris_memmove8) <- fetch idris_memmove3 -- Dest Offset
+    (CGrInt idris_memmove9) <- fetch idris_memmove4 -- Src Offset
+    (CGrInt idris_memmove10) <- fetch idris_memmove5 -- Size
+    idris_memmove11 <- _prim_memmove idris_memmove6 idris_memmove7 idris_memmove8 idris_memmove9 idris_memmove10
+    pure (CGrUnit)
 
   calloc calloc1 calloc2 =
     (CGrUndefined46) <- fetch calloc1
@@ -775,9 +783,13 @@ idrisPrimOps = withPrimPrelude [progConst|
     putchar4 <- _prim_putchar putchar3
     pure (CGrUnit)
 
-  idris_memset idris_memset1 =
-    (CGrUndefined61) <- fetch idris_memset1
-    pure (CGrUndefined62)
+  idris_memset idris_memset1 idris_memset2 idris_memset3 idris_memset4 =
+    (CGrPtr  idris_memset5) <- fetch idris_memset1
+    (CGrInt  idris_memset6) <- fetch idris_memset2 -- Offset
+    (CGrBit8 idris_memset7) <- fetch idris_memset3 -- Char
+    (CGrInt  idris_memset8) <- fetch idris_memset4 -- Size
+    idris_memset9 <- _prim_memset idris_memset5 idris_memset6 idris_memset7 idris_memset8
+    pure (CGrUnit)
 
   idris_getChannel idris_getChannel1 =
     (CGrUndefined63) <- fetch idris_getChannel1
@@ -799,9 +811,10 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrString idris_getBufferString7)
 
   idris_peek idris_peek1 idris_peek2 =
-    (CGrUndefined73) <- fetch idris_peek1
-    (CGrUndefined74) <- fetch idris_peek2
-    pure (CGrUndefined75)
+    (CGrPtr idris_peek3) <- fetch idris_peek1
+    (CGrInt idris_peek4) <- fetch idris_peek2 -- Offset
+    idris_peek5 <- _prim_peek idris_peek3 idris_peek4
+    pure (CGrBit8 idris_peek5)
 
   idris_recvMessage idris_recvMessage1 =
     (CGrUndefined76) <- fetch idris_recvMessage1
@@ -826,10 +839,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUnit)
 
   idris_poke idris_poke1 idris_poke2 idris_poke3 =
-    (CGrUndefined88) <- fetch idris_poke1
-    (CGrUndefined89) <- fetch idris_poke2
-    (CGrUndefined90) <- fetch idris_poke3
-    pure (CGrUndefined91)
+    (CGrPtr   idris_poke4) <- fetch idris_poke1
+    (CGrInt   idris_poke5) <- fetch idris_poke2 -- Offset
+    (CGrBit8  idris_poke6) <- fetch idris_poke3
+    idris_poke7 <- _prim_poke idris_poke4 idris_poke5 idris_poke6
+    pure (CGrUnit)
 
   idris_checkMessagesTimeout idris_checkMessagesTimeout1 idris_checkMessagesTimeout2 =
     (CGrUndefined92) <- fetch idris_checkMessagesTimeout1
@@ -863,8 +877,9 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUnit)
 
   malloc malloc1 =
-    (CGrUndefined111) <- fetch malloc1
-    pure (CGrUndefined112)
+    (CGrInt malloc2) <- fetch malloc1
+    malloc3 <- _prim_malloc malloc2
+    pure (CGrPtr malloc3)
 
   idris_fork idris_fork1 =
     (CGrUndefined113) <- fetch idris_fork1
