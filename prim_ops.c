@@ -197,6 +197,10 @@ struct string* _prim_string_cons(int64_t p1, struct string* p2){
     return r;
 }
 
+int64_t _prim_int_int(int64_t p1){
+    return p1;
+}
+
 struct string* _prim_int_str(int64_t p1){
 #ifdef DEBUG
     printf("_prim_int_str(%ld)\n", p1);
@@ -347,7 +351,7 @@ int64_t _prim_int_lshr(int64_t p1, int64_t p2) {
 #ifdef DEBUG
     printf("_prim_int_lshr(%d, %d)\n", p1, p2);
 #endif
-    return (p1 >> p2)
+    return (p1 >> p2);
 }
 
 int64_t _prim_int_and(int64_t p1, int64_t p2) {

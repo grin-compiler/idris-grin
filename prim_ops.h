@@ -43,6 +43,7 @@ int64_t         _prim_string_index(struct string* p1, int64_t p2);
 int64_t         _prim_float_int(float p1);
 int64_t         _prim_char_int(char p1);
 int64_t         _prim_str_int(struct string* p1);
+int64_t         _prim_int_int(int64_t p1);
 float           _prim_int_float(int64_t p1);
 float           _prim_string_float(struct string* p1);
 struct string*  _prim_float_string(float p1);
