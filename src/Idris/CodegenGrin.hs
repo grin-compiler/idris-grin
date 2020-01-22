@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase, TupleSections, RecordWildCards, TypeApplications #-}
 {-# LANGUAGE OverloadedStrings, ViewPatterns, ConstraintKinds #-}
-module Idris.CodegenGrin(
-    Options(..)
+module Idris.CodegenGrin
+  ( Options(..)
   , defaultOptions
   , codegenGrin
   ) where
@@ -38,6 +38,7 @@ import Idris.EvalPrimOp
 
 {-
 PLAN
+[x] Implement Recursive call only dead param elimination
 [ ] Implement primitive operations
     [ ] Use Double instead of Float
     [ ] Arithmetic for Integer types
@@ -207,7 +208,7 @@ foreignFun fname _ (FStr "fileSize") [(_FCon_C_Ptr, lvar0)]
 foreignFun fname _ (FStr "fileOpen") [(_FCon_C_Str0, lvar0), (_FCon_C_Str1, lvar1)]
   = Grin.SApp "idris_fileOpen" $ map (lvar fname) [lvar0, lvar1]
 foreignFun fname _ (FStr "fileError") [(_FCon_C_Ptr, lvar0)]
-  = Grin.SApp "idris_fileError" [lvar fname $ lvar0]
+  = Grin.SApp "fileError" [lvar fname $ lvar0]
 foreignFun fname _ (FStr "fileClose") [(_FCon_C_Ptr, lvar0)]
   = Grin.SApp "idris_fileClose" [lvar fname $ lvar0]
 foreignFun fname _ (FStr "idris_addToString") [(_FCon_C_Ptr, lvar0), (_FCon_C_Str, lvar1)]

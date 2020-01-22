@@ -19,6 +19,8 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_memset    :: T_Word64 -> T_Int64 -> T_Word64 -> T_Int64 -> T_Unit -- Ptr, Word8
     _prim_memmove   :: T_Word64 -> T_Word64 -> T_Int64 -> T_Int64 -> T_Int64 -> T_Unit -- Ptr, Ptr
     _prim_free      :: T_Word64 -> T_Unit -- Ptr
+    _prim_write_file :: T_Word64 -> T_String -> T_Int64 -- FilePtr 0 on success
+    _prim_read_chars :: T_Word64 -> T_Int64 -> T_String
 
   ffi effectful
     _prim_int_print     :: T_Int64  -> T_Unit
@@ -51,6 +53,7 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_get_buffer_double :: T_Word64 -> T_Int64 -> T_Float  -- TODO: Ptr
     _prim_get_buffer_string :: T_Word64 -> T_Int64 -> T_Int64 -> T_String
     _prim_file_open         :: T_String -> T_String -> T_Word64 -- TODO: Ptr
+    _prim_file_error        :: T_Word64 -> T_Int64 -- Ptr
 
   -- Everything that handles Strings are FFI implemented now.
   ffi pure
@@ -138,8 +141,7 @@ idrisPrimOps = withPrimPrelude [progConst|
 
   prim__null =
     -- TODO: Word constants, or constants with primitive type annotations
-    prim__null1 <- _prim_int_word 0
-    pure (CGrPtr prim__null1)
+    pure (CGrUndefined114)
 
   idris_bit8_eq idris_bit8_eq0 idris_bit8_eq1 =
     (CGrBit8 idris_bit8_eq0_1) <- fetch idris_bit8_eq0
@@ -497,7 +499,7 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrFloat idris_float_atan2_5)
 
   idris_ffi_file_eof idris_ffi_file_eof1 =
-    (CGrBit64 idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
+    (CGrPtr idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
     idris_ffi_file_eof2 <- _prim_file_eof idris_ffi_file_eof1_0
     pure (CGrInt idris_ffi_file_eof2)
 
@@ -597,9 +599,10 @@ idrisPrimOps = withPrimPrelude [progConst|
     idris_fileOpen5 <- _prim_file_open idris_fileOpen3 idris_fileOpen4
     pure (CGrPtr idris_fileOpen5)
 
-  idris_fileError idris_fileError1 =
-    idris_fileError2 <- _prim_int_word 0 -- TODO: Call ferror
-    pure (CGrPtr idris_fileError2)
+  fileError fileError1 =
+    (CGrPtr fileError2) <- fetch fileError1
+    fileError3 <- _prim_file_error fileError2
+    pure (CGrInt fileError3)
 
   idris_fileClose idris_fileClose1 =
     (CGrPtr idris_fileClose2) <- fetch idris_fileClose1
@@ -644,15 +647,15 @@ idrisPrimOps = withPrimPrelude [progConst|
 
   prim__stdin =
     prim__stdin1 <- _prim_stdin
-    pure (CGrBit64 prim__stdin1)
+    pure (CGrPtr prim__stdin1)
 
   prim__stdout =
     prim__stdout1 <- _prim_stdout
-    pure (CGrBit64 prim__stdout1)
+    pure (CGrPtr prim__stdout1)
 
   prim__stderr =
     prim__stderr1 <- _prim_stderr
-    pure (CGrBit64 prim__stderr1)
+    pure (CGrPt prim__stderr1)
 
   prim__vm prim__vm1 =
     -- TODO: Figure this out properly
@@ -661,10 +664,16 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrVM)
 
   prim__writeFile prim__writeFile1 prim__writeFile2 prim__writeFile3 =
-    (CGrUndefined1) <- fetch prim__writeFile1
-    (CGrUndefined2) <- fetch prim__writeFile2
-    (CGrUndefined3) <- fetch prim__writeFile3
-    pure (CGrUndefined4)
+    (CGrPtr    prim__writeFile4) <- fetch prim__writeFile2
+    (CGrString prim__writeFile5) <- fetch prim__writeFile3
+    prim__writeFile6 <- _prim_write_file prim__writeFile4 prim__writeFile5
+    pure (CGrInt prim__writeFile6)
+
+  prim__readChars prim__readChars1 prim__readChars2 prim__readChars3 =
+    (CGrInt prim__readChars4) <- fetch prim__readChars2
+    (CGrPtr prim__readChars5) <- fetch prim__readChars3
+    prim__readChars6 <- _prim_read_chars prim__readChars5 prim__readChars4
+    pure (CGrString prim__readChars6)
 
   idris_newBuffer idris_newBuffer1 idris_newBuffer2 =
     (CGrVM) <- fetch idris_newBuffer1
@@ -903,7 +912,6 @@ export data CData : Type
 
 %extern prim__readFile : prim__WorldType -> Ptr -> String
 %extern prim__readChars : prim__WorldType -> Int -> Ptr -> String
-%extern prim__writeFile : prim__WorldType -> Ptr -> String -> Int
 
 %extern prim__vm : prim__WorldType -> Ptr
 %extern prim__stdin : Ptr

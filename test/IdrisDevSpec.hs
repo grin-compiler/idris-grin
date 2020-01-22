@@ -97,7 +97,7 @@ spec = do
     it "test/idris-dev/interfaces003/interfaces003.idr" $ testBackend "test/idris-dev/interfaces003/interfaces003.idr"
     it "test/idris-dev/interfaces004/interfaces004.idr" $ testBackend "test/idris-dev/interfaces004/interfaces004.idr"
     it "test/idris-dev/interfaces007/interfaces007.idr" $ testBackend "test/idris-dev/interfaces007/interfaces007.idr"
-    it "test/idris-dev/io001/test004.idr" $ testBackend "test/idris-dev/io001/test004.idr"
+    it "test/idris-dev/io001/test004.idr" $ testBackend "test/idris-dev/io001/test004.idr" -- Remove test file?
     it "test/idris-dev/io002/test008.idr" $ testBackend "test/idris-dev/io002/test008.idr"
     it "test/idris-dev/io003/test018.idr" $ testBackend "test/idris-dev/io003/test018.idr"
     it "test/idris-dev/io003/test018a.idr" $ (testBackend "test/idris-dev/io003/test018a.idr") { package = Just "contrib" }

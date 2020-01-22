@@ -5,7 +5,7 @@ allow-newer: true
 
 packages:
   - '.'
-#  - '../grin/grin'
+  # - '../grin/grin'
 
 
 extra-deps:
@@ -18,7 +18,7 @@ extra-deps:
   - floating-bits-0.3.0.0
 
   - github: grin-compiler/grin
-    commit: 133441c8db7d2a542db9e27adc1b6466769d7d23
+    commit: 2976a999612ed8137a1e6d9381a8360eac96626d
     subdirs:
       - grin
 

@@ -10,7 +10,9 @@ module Idris.EvalPrimOp
   , createBuffer
   ) where
 
+import Control.Category ((>>>))
 import Control.Concurrent (threadDelay)
+import Control.Exception (SomeException, try)
 import Control.Monad.IO.Class
 import Data.Bits
 import Data.Char (chr, ord)
@@ -28,6 +30,7 @@ import Foreign.Marshal.Alloc
 import Grin.Grin
 import Reducer.Base
 import System.IO
+import System.IO.Error
 import System.IO.Unsafe
 import Data.Bits.Floating
 import Data.Int
@@ -43,9 +46,11 @@ import qualified Language.C.Inline.Unsafe as CU
 C.include "<math.h>"
 C.include "<stdio.h>"
 
+type FileError = Int
+
 data EvalReferences = EvalReferences
   { bufferRef :: IORef (IntMap (Vector Word8))
-  , handleRef :: IORef (IntMap Handle)
+  , handleRef :: IORef (IntMap (Handle, FileError))
   , mallocRef :: IORef (IntMap (Vector Word8))
   }
 
@@ -54,9 +59,9 @@ createBuffer = do
   -- The 0 index is reserved for the NULL pointer.
   bufferRef <- newIORef $ IntMap.singleton 0 Vector.empty
   handleRef <- newIORef $ IntMap.fromList
-    [ (0, stdin)
-    , (1, stdout)
-    , (2, stderr)
+    [ (0, (stdin,  0))
+    , (1, (stdout, 0))
+    , (2, (stderr, 0))
     ]
   mallocRef <- newIORef $ IntMap.singleton 0 Vector.empty
   pure $ EvalReferences bufferRef handleRef mallocRef
@@ -88,6 +93,9 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef) name params args = cas
   "_prim_memset"       -> primMemset
   "_prim_memmove"      -> primMemmove
   "_prim_free"         -> primFree
+  "_prim_write_file"   -> primWriteFile
+  "_prim_read_chars"   -> primReadChars
+  "_prim_file_error"   -> primFileError
 
   -- Buffer
   "_prim_new_buffer"        -> primNewBuffer
@@ -450,9 +458,48 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef) name params args = cas
             pure $ RT_Unit
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
+  primWriteFile = case args of
+    [RT_Lit (LWord64 filePtr), RT_Lit (LString str)] -> do
+      (handle, _) <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      res <- try $ hPutStr handle $ Text.unpack str
+      case res of
+        Left err -> do
+          let code = ioErrorCode err
+          modifyIORef handleRef $
+            IntMap.adjust
+              (\(h, _) -> (h, code))
+              (fromIntegral filePtr)
+          pure $ RT_Lit $ LInt64 $ fromIntegral code
+        Right _ ->
+          pure $ RT_Lit $ LInt64 0
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primFileError = case args of
+    [RT_Lit (LWord64 filePtr)] -> do
+      (_,e) <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      pure $ RT_Lit $ LInt64 $ fromIntegral e
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primReadChars = case args of
+    [RT_Lit (LWord64 filePtr), RT_Lit (LInt64 len)] -> do
+      (handle, _) <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      let readChars 0 res = pure $ reverse res
+          readChars n res = do
+            r <- try $ hGetChar handle
+            case r of
+              Left e -> do
+                modifyIORef handleRef $
+                  IntMap.adjust
+                    (\(h, _) -> (h, ioErrorCode e))
+                    (fromIntegral filePtr)
+                pure ""
+              Right c -> readChars (n-1) (c:res)
+      (RT_Lit . LString . fromString) <$> readChars len ""
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
   primReadBuffer = case args of
     [RT_Lit (LWord64 filePtr), RT_Lit (LWord64 idx), RT_Lit (LInt64 loc), RT_Lit (LInt64 max0)] -> do
-      handle <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      (handle, _) <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
       buffer <- readIORef bufferRef
       let noOfBytesToRead = Vector.length
                           $ Vector.drop (fromIntegral loc)
@@ -476,12 +523,20 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef) name params args = cas
   primWriteBuffer = case args of
     [RT_Lit (LWord64 filePtr), RT_Lit (LWord64 idx), RT_Lit (LInt64 loc), RT_Lit (LInt64 len)] -> do
       buffer <- readIORef bufferRef
-      handle <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      (handle, _) <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
       let bytes = Vector.toList
                 $ Vector.take (fromIntegral len)
                 $ Vector.drop (fromIntegral loc)
                 $ buffer IntMap.! (fromIntegral idx)
-      mapM (hPutChar handle . chr . fromIntegral) bytes
+      res <- try $ mapM_ (hPutChar handle . chr . fromIntegral) bytes
+      case res of
+        Left e -> do
+          let code = ioErrorCode e
+          modifyIORef handleRef $
+            IntMap.adjust
+              (\(handle, _) -> (handle, code))
+              (fromIntegral filePtr)
+        Right _ -> pure ()
       pure RT_Unit
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
@@ -521,20 +576,20 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef) name params args = cas
                   rest  -> error $ "primFileOpen: " ++ rest
       handle <- openFile (Text.unpack fileName) mode
       modifyIORef handleRef
-        $ IntMap.insert newPtr handle
+        $ IntMap.insert newPtr (handle, 0)
       pure $ RT_Lit $ LWord64 $ fromIntegral newPtr
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   primFileEOF = case args of
     [RT_Lit (LWord64 filePtr)] -> do
-      handle <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      (handle, _) <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
       eof <- hIsEOF handle
       pure $ RT_Lit $ LInt64 $ case eof of { True -> 1; False -> 0 }
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   primFileClose = case args of
     [RT_Lit (LWord64 filePtr)] -> do
-      handle <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
+      (handle, _) <- fmap (\m -> m IntMap.! (fromIntegral filePtr)) $ readIORef handleRef
       hClose handle
       pure $ RT_Unit
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
@@ -578,3 +633,15 @@ bytesToDouble (b1, b2, b3, b4)
     .|. shift (fromIntegral b2) 8
     .|. shift (fromIntegral b3) 16
     .|. shift (fromIntegral b4) 24
+
+ioErrorCode :: IOError -> Int
+ioErrorCode = ioeGetErrorType >>> \case
+  err | isAlreadyExistsErrorType    err -> 1
+      | isDoesNotExistErrorType     err -> 2
+      | isAlreadyInUseErrorType     err -> 3
+      | isFullErrorType             err -> 4
+      | isEOFErrorType              err -> 5
+      | isIllegalOperationErrorType err -> 6
+      | isPermissionErrorType       err -> 7
+      | isUserErrorType             err -> 8
+      | otherwise -> error $ show err
