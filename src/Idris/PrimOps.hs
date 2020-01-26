@@ -21,6 +21,15 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_free      :: T_Word64 -> T_Unit -- Ptr
     _prim_write_file :: T_Word64 -> T_String -> T_Int64 -- FilePtr 0 on success
     _prim_read_chars :: T_Word64 -> T_Int64 -> T_String
+    _prim_create_vm :: T_Word64 -- Ptr
+    _prim_get_vm    :: %ref -> T_Word64 -- Ptr, Ptr
+    _prim_poke8     :: T_Word64 -> T_Int64 -> T_Word64 -> T_Unit
+    _prim_poke16    :: T_Word64 -> T_Int64 -> T_Word64 -> T_Unit -- Ptr, Int, Bits16
+    _prim_poke32    :: T_Word64 -> T_Int64 -> T_Word64 -> T_Unit
+    _prim_peek8     :: T_Word64 -> T_Int64 -> T_Word64
+    _prim_peek16    :: T_Word64 -> T_Int64 -> T_Word64
+    _prim_peek32    :: T_Word64 -> T_Int64 -> T_Word64
+    _prim_peek64    :: T_Word64 -> T_Int64 -> T_Word64
 
   ffi effectful
     _prim_int_print     :: T_Int64  -> T_Unit
@@ -44,6 +53,8 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_stdout        :: T_Word64 -- TODO: Ptr
     _prim_stderr        :: T_Word64 -- TODO: Ptr
     _prim_putchar       :: T_Char -> T_Unit
+    _prim_send_message  :: T_Word64 -> T_Word64 -> T_Int64 -> %msg -> T_Int64 -- VMPtr VMPtr Channel msg
+    _prim_recv_message  :: T_Word64 -> %msg -- Ptr msg
 
   -- These are effectful primitives, but we can optimise them away, if nothing
   -- depends on them
@@ -54,6 +65,9 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_get_buffer_string :: T_Word64 -> T_Int64 -> T_Int64 -> T_String
     _prim_file_open         :: T_String -> T_String -> T_Word64 -- TODO: Ptr
     _prim_file_error        :: T_Word64 -> T_Int64 -- Ptr
+    _prim_null              :: T_Word64 -- Ptr
+    _prim_eq_ptr            :: T_Word64 -> T_Word64 -> T_Int64 -- Ptr
+    _prim_calloc            :: T_Int64  -> T_Int64  -> T_Word64 -- Ptr
 
   -- Everything that handles Strings are FFI implemented now.
   ffi pure
@@ -140,8 +154,14 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_bool_ne   :: T_Bool -> T_Bool -> T_Bool
 
   prim__null =
-    -- TODO: Word constants, or constants with primitive type annotations
-    pure (CGrUndefined114)
+    prim__null1 <- _prim_null
+    pure (CGrPtr prim__null1)
+
+  prim__eqPtr prim__eqPtr1 prim__eqPtr2 =
+    (CGrPtr prim__eqPtr3) <- fetch prim__eqPtr1
+    (CGrPtr prim__eqPtr4) <- fetch prim__eqPtr2
+    prim__eqPtr5 <- _prim_eq_ptr prim__eqPtr3 prim__eqPtr4
+    pure (CGrInt prim__eqPtr5)
 
   idris_bit8_eq idris_bit8_eq0 idris_bit8_eq1 =
     (CGrBit8 idris_bit8_eq0_1) <- fetch idris_bit8_eq0
@@ -658,10 +678,9 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrPt prim__stderr1)
 
   prim__vm prim__vm1 =
-    -- TODO: Figure this out properly
-    prim__vm2 <- fetch prim__vm1
     -- Pointer of VM
-    pure (CGrVM)
+    prim__vm3 <- _prim_get_vm prim__vm1
+    pure (CGrVM prim__vm3)
 
   prim__writeFile prim__writeFile1 prim__writeFile2 prim__writeFile3 =
     (CGrPtr    prim__writeFile4) <- fetch prim__writeFile2
@@ -675,8 +694,56 @@ idrisPrimOps = withPrimPrelude [progConst|
     prim__readChars6 <- _prim_read_chars prim__readChars5 prim__readChars4
     pure (CGrString prim__readChars6)
 
+  prim__poke8 prim__poke8_1 prim__poke8_2 prim__poke8_3 prim__poke8_4 =
+    (CGrPtr prim__poke8_5) <- fetch prim__poke8_2
+    (CGrInt prim__poke8_6) <- fetch prim__poke8_3
+    (CGrBit8 prim__poke8_7) <- fetch prim__poke8_4
+    prim__poke8_8 <- _prim_poke8 prim__poke8_5 prim__poke8_6 prim__poke8_7
+    prim__poke8_9 <- pure 0
+    pure (CGrInt prim__poke8_9)
+
+  prim__poke16 prim__poke16_1 prim__poke16_2 prim__poke16_3 prim__poke16_4 =
+    (CGrPtr prim__poke16_5) <- fetch prim__poke16_2
+    (CGrInt prim__poke16_6) <- fetch prim__poke16_3
+    (CGrBit16 prim__poke16_7) <- fetch prim__poke16_4
+    prim__poke16_8 <- _prim_poke16 prim__poke16_5 prim__poke16_6 prim__poke16_7
+    prim__poke16_9 <- pure 0
+    pure (CGrInt prim__poke16_9)
+
+  prim__poke32 prim__poke32_1 prim__poke32_2 prim__poke32_3 prim__poke32_4 =
+    (CGrPtr prim__poke32_5) <- fetch prim__poke32_2
+    (CGrInt prim__poke32_6) <- fetch prim__poke32_3
+    (CGrBit32 prim__poke32_7) <- fetch prim__poke32_4
+    prim__poke32_8 <- _prim_poke32 prim__poke32_5 prim__poke32_6 prim__poke32_7
+    prim__poke32_9 <- pure 0
+    pure (CGrInt prim__poke32_9)
+
+  prim__peek8 prim__peek8_0 prim__peek8_1 prim__peek8_2 =
+    (CGrPtr prim__peek8_3) <- fetch prim__peek8_1
+    (CGrInt prim__peek8_4) <- fetch prim__peek8_2
+    prim__peek8_5 <- _prim_peek8 prim__peek8_3 prim__peek8_4
+    pure (CGrBit8 prim__peek8_5)
+
+  prim__peek16 prim__peek16_0 prim__peek16_1 prim__peek16_2 =
+    (CGrPtr prim__peek16_3) <- fetch prim__peek16_1
+    (CGrInt prim__peek16_4) <- fetch prim__peek16_2
+    prim__peek16_5 <- _prim_peek16 prim__peek16_3 prim__peek16_4
+    pure (CGrBit16 prim__peek16_5)
+
+  prim__peek32 prim__peek32_0 prim__peek32_1 prim__peek32_2 =
+    (CGrPtr prim__peek32_3) <- fetch prim__peek32_1
+    (CGrInt prim__peek32_4) <- fetch prim__peek32_2
+    prim__peek32_5 <- _prim_peek32 prim__peek32_3 prim__peek32_4
+    pure (CGrBit32 prim__peek32_5)
+
+  prim__peek64 prim__peek64_0 prim__peek64_1 prim__peek64_2 =
+    (CGrPtr prim__peek64_3) <- fetch prim__peek64_1
+    (CGrInt prim__peek64_4) <- fetch prim__peek64_2
+    prim__peek64_5 <- _prim_peek64 prim__peek64_3 prim__peek64_4
+    pure (CGrBit64 prim__peek64_5)
+
   idris_newBuffer idris_newBuffer1 idris_newBuffer2 =
-    (CGrVM) <- fetch idris_newBuffer1
+    (CGrVM idris_newBuffer5) <- fetch idris_newBuffer1
     (CGrInt idris_newBuffer3) <- fetch idris_newBuffer2
     idris_newBuffer4 <- _prim_new_buffer idris_newBuffer3
     pure (CGrPtr idris_newBuffer4)
@@ -760,9 +827,10 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUnit)
 
   calloc calloc1 calloc2 =
-    (CGrUndefined46) <- fetch calloc1
-    (CGrUndefined47) <- fetch calloc2
-    pure (CGrUndefined48)
+    (CGrInt calloc3) <- fetch calloc1
+    (CGrInt calloc4) <- fetch calloc2
+    calloc5 <- _prim_calloc calloc3 calloc4
+    pure (CGrPtr calloc5)
 
   idris_getSender idris_getSender1 =
     (CGrUndefined49) <- fetch idris_getSender1
@@ -826,8 +894,9 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrBit8 idris_peek5)
 
   idris_recvMessage idris_recvMessage1 =
-    (CGrUndefined76) <- fetch idris_recvMessage1
-    pure (CGrUndefined77)
+    (CGrVM idris_recvMessage2) <- fetch idris_recvMessage1
+    idris_recvMessage3 <- _prim_recv_message idris_recvMessage2
+    pure idris_recvMessage3
 
   idris_checkMessages idris_checkMessages1 =
     (CGrUndefined78) <- fetch idris_checkMessages1
@@ -864,11 +933,12 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUndefined96)
 
   idris_sendMessage idris_sendMessage1 idris_sendMessage2 idris_sendMessage3 idris_sendMessage4 =
-    (CGrUndefined97)  <- fetch idris_sendMessage1
-    (CGrUndefined98)  <- fetch idris_sendMessage2
-    (CGrUndefined99)  <- fetch idris_sendMessage3
-    (CGrUndefined100) <- fetch idris_sendMessage4
-    pure (CGrUndefined101)
+    (CGrVM idris_sendMessage8)  <- fetch idris_sendMessage1
+    (CGrInt idris_sendMessage5) <- fetch idris_sendMessage2 -- Channel ID
+    (CGrVM idris_sendMessage9)  <- fetch idris_sendMessage3
+    idris_sendMessage6 <- fetch idris_sendMessage4
+    idris_sendMessage7 <- _prim_send_message idris_sendMessage8 idris_sendMessage9 idris_sendMessage5 idris_sendMessage6 -- TODO
+    pure (CGrInt idris_sendMessage7)
 
   idris_writeBuffer idris_writeBuffer1 idris_writeBuffer2 idris_writeBuffer3 idris_writeBuffer4 =
     (CGrPtr idris_writeBuffer5) <- fetch idris_writeBuffer1
@@ -891,8 +961,10 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrPtr malloc3)
 
   idris_fork idris_fork1 =
-    (CGrUndefined113) <- fetch idris_fork1
-    pure (CGrUndefined113)
+    -- TODO: How to do forking?
+    idris_fork2 <- "idr_{EVAL_0}" idris_fork1
+    idris_fork3 <- _prim_create_vm
+    pure (CGrVM idris_fork3)
 
   grinMain =
     r <- "idr_{runMain_0}"
@@ -913,14 +985,7 @@ export data CData : Type
 %extern prim__readFile : prim__WorldType -> Ptr -> String
 %extern prim__readChars : prim__WorldType -> Int -> Ptr -> String
 
-%extern prim__vm : prim__WorldType -> Ptr
-%extern prim__stdin : Ptr
-%extern prim__stdout : Ptr
-%extern prim__stderr : Ptr
-
-%extern prim__null : Ptr
 %extern prim__managedNull : ManagedPtr
-%extern prim__eqPtr : Ptr -> Ptr -> Int
 %extern prim__eqManagedPtr : ManagedPtr -> ManagedPtr -> Int
 %extern prim__registerPtr : Ptr -> Int -> ManagedPtr
 
@@ -928,20 +993,14 @@ export data CData : Type
 %extern prim__asPtr : ManagedPtr -> Ptr
 %extern prim__sizeofPtr : Int
 %extern prim__ptrOffset : Ptr -> Int -> Ptr
-%extern prim__peek8 : prim__WorldType -> Ptr -> Int -> Bits8
-%extern prim__peek16 : prim__WorldType -> Ptr -> Int -> Bits16
-%extern prim__peek32 : prim__WorldType -> Ptr -> Int -> Bits32
-%extern prim__peek64 : prim__WorldType -> Ptr -> Int -> Bits64
 
-%extern prim__poke8 : prim__WorldType -> Ptr -> Int -> Bits8 -> Int
-%extern prim__poke16 : prim__WorldType -> Ptr -> Int -> Bits16 -> Int
-%extern prim__poke32 : prim__WorldType -> Ptr -> Int -> Bits32 -> Int
+%extern prim__peek64 : prim__WorldType -> Ptr -> Int -> Bits64
 %extern prim__poke64 : prim__WorldType -> Ptr -> Int -> Bits64 -> Int
 
 %extern prim__peekPtr : prim__WorldType -> Ptr -> Int -> Ptr
 %extern prim__pokePtr : prim__WorldType -> Ptr -> Int -> Ptr -> Int
 
-%extern pri__peekDouble : prim__WorldType -> Ptr -> Int -> Double
+%extern prim__peekDouble : prim__WorldType -> Ptr -> Int -> Double
 %extern prim__pokeDouble : prim__WorldType -> Ptr -> Int -> Double -> Int
 %extern prim__peekSingle : prim__WorldType -> Ptr -> Int -> Double
 %extern prim__pokeSingle : prim__WorldType -> Ptr -> Int -> Double -> Int

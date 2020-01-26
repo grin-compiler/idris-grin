@@ -39,6 +39,7 @@ import Idris.EvalPrimOp
 {-
 PLAN
 [x] Implement Recursive call only dead param elimination
+[ ] Check of duplicate function names
 [ ] Implement primitive operations
     [ ] Use Double instead of Float
     [ ] Arithmetic for Integer types
@@ -533,11 +534,11 @@ preparation =
 --  , HPT PrintHPTResult
 --  , PrintTypeEnv
   , Statistics
-  , SaveTypeEnv
+--  , SaveTypeEnv
 --  , HPT PrintHPTCode
   , SaveGrin (Rel "high-level-code.grin")
-  , HPTPass
-  , Lint
+--  , HPTPass
+--  , Lint
   ]
 
 idrisOptimizations :: Options -> [Transformation]

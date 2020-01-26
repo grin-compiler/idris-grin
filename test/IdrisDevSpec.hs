@@ -115,7 +115,7 @@ spec = do
     xit "test/idris-dev/primitives006/load-test.idr" $ testBackend "test/idris-dev/primitives006/load-test.idr"
     it "test/idris-dev/proof010/proof010.idr" $ testBackend "test/idris-dev/proof010/proof010.idr"
     it "test/idris-dev/proofsearch001/proofsearch001.idr" $ testBackend "test/idris-dev/proofsearch001/proofsearch001.idr"
-    it "test/idris-dev/proofsearch002/proofsearch002.idr" $ testBackend "test/idris-dev/proofsearch002/proofsearch002.idr"
+    xit "test/idris-dev/proofsearch002/proofsearch002.idr" $ testBackend "test/idris-dev/proofsearch002/proofsearch002.idr"
     it "test/idris-dev/quasiquote002/GoalQQuote.idr" $ testBackend "test/idris-dev/quasiquote002/GoalQQuote.idr"
     it "test/idris-dev/records001/test011.idr" $ testBackend "test/idris-dev/records001/test011.idr"
     it "test/idris-dev/records002/record002.idr" $ testBackend "test/idris-dev/records002/record002.idr"
