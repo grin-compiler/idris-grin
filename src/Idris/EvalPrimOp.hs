@@ -36,6 +36,7 @@ import Data.Bits.Floating
 import Data.Int
 import Data.Maybe (fromMaybe)
 import Control.Monad (when, mzero)
+import System.Environment (getArgs)
 
 import qualified Data.Text as Text
 import qualified Data.Vector as Vector
@@ -120,6 +121,8 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef vmRef) name params args
   "_prim_recv_message" -> primRecvMessage
   "_prim_create_vm"    -> primCreateVM
   "_prim_get_vm"       -> primGetVM
+  "_prim_num_args"     -> primNumArgs
+  "_prim_get_arg"      -> primGetArg
 
   -- Buffer
   "_prim_new_buffer"        -> primNewBuffer
@@ -748,6 +751,18 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef vmRef) name params args
   primGetVM = case args of
     [_] -> do
       pure $ RT_Lit $ LWord64 0
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primNumArgs = case args of
+    [] -> do
+      args <- getArgs
+      pure $ RT_Lit $ LInt64 $ fromIntegral $ length args
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primGetArg = case args of
+    [RT_Lit (LInt64 i)] -> do
+      args <- getArgs
+      pure $ RT_Lit $ LString $ fromString $ args !! (fromIntegral i)
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   boolean f t x = if x then t else f

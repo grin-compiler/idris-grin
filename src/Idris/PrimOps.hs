@@ -30,6 +30,8 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_peek16    :: T_Word64 -> T_Int64 -> T_Word64
     _prim_peek32    :: T_Word64 -> T_Int64 -> T_Word64
     _prim_peek64    :: T_Word64 -> T_Int64 -> T_Word64
+    _prim_num_args  :: T_Int64
+    _prim_get_arg   :: T_Int64 -> T_String
 
   ffi effectful
     _prim_int_print     :: T_Int64  -> T_Unit
@@ -808,7 +810,8 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUndefined35)
 
   idris_numArgs =
-    pure (CGrUndefined36)
+    idris_numArgs1 <- _prim_num_args
+    pure (CGrInt idris_numArgs1)
 
   fgetc fgetc1 =
     (CGrUndefined37) <- fetch fgetc1
@@ -837,8 +840,9 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUndefined50)
 
   idris_getArg idris_getArg1 =
-    (CGrUndefined51) <- fetch idris_getArg1
-    pure (CGrUndefined52)
+    (CGrInt idris_getArg2) <- fetch idris_getArg1
+    idris_getArg3 <- _prim_get_arg idris_getArg2
+    pure (CGrString idris_getArg3)
 
   idris_readBuffer idris_readBuffer1 idris_readBuffer2 idris_readBuffer3 idris_readBuffer4 =
     (CGrPtr idris_readBuffer5) <- fetch idris_readBuffer1
