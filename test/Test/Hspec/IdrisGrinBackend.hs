@@ -28,6 +28,7 @@ import Data.List (isSuffixOf)
 import qualified Data.Map as Map
 import Data.Time.Clock
 import System.FilePath
+import Data.List (intercalate)
 
 import Control.Exception
 import Control.Concurrent (threadDelay)
@@ -47,16 +48,18 @@ data IdrisCodeGen
     , timeoutInSecs :: Int
     , withInclude   :: Bool
     , package       :: Maybe String
+    , pendingReason :: Maybe String
+    , arguments     :: Maybe [String]
     }
 
 idris :: CompileMode -> Int -> String -> IdrisCodeGen
-idris c t fp = IdrisCodeGen fp Nothing c t False Nothing
+idris c t fp = IdrisCodeGen fp Nothing c t False Nothing Nothing Nothing
 
 idrisWithIncludeDir :: CompileMode -> Int -> String -> IdrisCodeGen
-idrisWithIncludeDir c t fp = IdrisCodeGen fp Nothing c t True Nothing
+idrisWithIncludeDir c t fp = IdrisCodeGen fp Nothing c t True Nothing Nothing Nothing
 
 idrisWithStdin :: CompileMode -> Int -> String -> String -> IdrisCodeGen
-idrisWithStdin c t fp inp = IdrisCodeGen fp (Just inp) c t False Nothing
+idrisWithStdin c t fp inp = IdrisCodeGen fp (Just inp) c t False Nothing Nothing Nothing
 
 testBinaryName :: IdrisCodeGen -> String
 testBinaryName icg = takeFileName (source icg)  ++ ".bin"
@@ -74,6 +77,9 @@ tryExcept io = (lift (try io)) >>= either (throwE . Failure Nothing . Reason . s
 -- TODO: Improve readability
 instance Example IdrisCodeGen where
   type Arg IdrisCodeGen = ()
+  evaluateExample icg _params _actionWith _progressCallback
+    | Just reason <- pendingReason icg = do
+        pure $ Result "" $ Pending Nothing (Just reason)
   evaluateExample icg@(IdrisCodeGen{..}) params actionWith progressCallback = do
     progressRef <- newIORef 0
     let progress = do
@@ -121,13 +127,14 @@ instance Example IdrisCodeGen where
       let idrisFullCmd = printf "stack exec idris -- %s %s -o %s %s" source includeDir testBin (maybe "" ("-p "++) package)
       let idris = (shell idrisFullCmd)
                   { std_in = NoStream, std_out = CreatePipe, std_err = CreatePipe } -- TODO: Log activity
-      let runTest = (shell $ "./" ++ testBin)
+      let runTest = (shell $ "./" ++ testBin ++ " " ++ maybe "" (intercalate " ") arguments)
                     { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
-      let runGrinTest = (shell $ "./" ++ testGrinBin)
+      let runGrinTest = (shell $ "./" ++ testGrinBin ++ " " ++ maybe "" (intercalate " ") arguments)
                         { std_in = stdInCreate, std_out = CreatePipe, std_err = CreatePipe }
+      let evalArgs = " --cg-opt --eval --cg-opt --eval-name=./" ++ testBin ++ "" ++ maybe "" (concatMap (\a -> " --cg-opt --eval-arg=" ++ a)) arguments
       let idrisGrinCmd = case compiled of
-            OptimisedEval    -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed --cg-opt --eval"
-            NonOptimisedEval -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --grin --cg-opt --O0 --cg-opt --quiet --cg-opt --eval"
+            OptimisedEval    -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --grin --cg-opt --quiet --cg-opt --binary-intermed" ++ evalArgs
+            NonOptimisedEval -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --grin --cg-opt --O0 --cg-opt --quiet" ++ evalArgs
             Compiled         -> "stack exec idris -- %s %s --codegen grin -o %s %s --cg-opt --quiet"
       let idrisGrinOutputFile = case compiled of
             Compiled -> testGrinBin

@@ -64,6 +64,4 @@ readH fn = res (do let x = open fn Reading
                        else rputStrLn "Error")
 
 main : IO ()
-main = run (readH "test")
-
-
+main = run (readH "test014file")

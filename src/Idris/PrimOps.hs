@@ -80,6 +80,7 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_string_eq      :: T_String -> T_String -> T_Int64
     _prim_string_tail    :: T_String -> T_String
     _prim_string_len     :: T_String -> T_Int64
+    _prim_string_sub     :: T_Int64 -> T_Int64 -> T_String -> T_String
 
     -- TODO: Represent Characters as UTF8Chars instead of Int64  in the following functions
     _prim_string_cons    :: T_Int64  -> T_String -> T_String -- TODO
@@ -132,6 +133,7 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_word_and  :: T_Word64 -> T_Word64 -> T_Word64
     _prim_word_lshr :: T_Word64 -> T_Word64 -> T_Word64
     _prim_word_udiv :: T_Word64 -> T_Word64 -> T_Word64
+    _prim_word_urem :: T_Word64 -> T_Word64 -> T_Word64
     _prim_word_eq   :: T_Word64 -> T_Word64 -> T_Bool
     _prim_word_ne   :: T_Word64 -> T_Word64 -> T_Bool
     _prim_word_gt   :: T_Word64 -> T_Word64 -> T_Bool
@@ -408,6 +410,36 @@ idrisPrimOps = withPrimPrelude [progConst|
     idris_int_rem5 <- _prim_int_rem idris_int_rem3 idris_int_rem4
     pure (CGrInt idris_int_rem5)
 
+  idris_int_urem idris_int_urem1 idris_int_urem2 =
+    (CGrInt idris_int_urem3) <- fetch idris_int_urem1
+    (CGrInt idris_int_urem4) <- fetch idris_int_urem2
+    idris_int_urem5 <- _prim_int_urem idris_int_urem3 idris_int_urem4
+    pure (CGrInt idris_int_urem5)
+
+  idris_bit8_urem idris_bit8_urem1 idris_bit8_urem2 =
+    (CGrBit8 idris_bit8_urem3) <- fetch idris_bit8_urem1
+    (CGrBit8 idris_bit8_urem4) <- fetch idris_bit8_urem2
+    idris_bit8_urem5 <- _prim_word_urem idris_bit8_urem3 idris_bit8_urem4
+    pure (CGrBit8 idris_bit8_urem5)
+
+  idris_bit16_urem idris_bit16_urem1 idris_bit16_urem2 =
+    (CGrBit16 idris_bit16_urem3) <- fetch idris_bit16_urem1
+    (CGrBit16 idris_bit16_urem4) <- fetch idris_bit16_urem2
+    idris_bit16_urem5 <- _prim_word_urem idris_bit16_urem3 idris_bit16_urem4
+    pure (CGrBit16 idris_bit16_urem5)
+
+  idris_bit32_urem idris_bit32_urem1 idris_bit32_urem2 =
+    (CGrBit32 idris_bit32_urem3) <- fetch idris_bit32_urem1
+    (CGrBit32 idris_bit32_urem4) <- fetch idris_bit32_urem2
+    idris_bit32_urem5 <- _prim_word_urem idris_bit32_urem3 idris_bit32_urem4
+    pure (CGrBit32 idris_bit32_urem5)
+
+  idris_bit64_urem idris_bit64_urem1 idris_bit64_urem2 =
+    (CGrBit64 idris_bit64_urem3) <- fetch idris_bit64_urem1
+    (CGrBit64 idris_bit64_urem4) <- fetch idris_bit64_urem2
+    idris_bit64_urem5 <- _prim_word_urem idris_bit64_urem3 idris_bit64_urem4
+    pure (CGrBit64 idris_bit64_urem5)
+
   idris_float_div idris_float_div0 idris_float_div1 =
     (CGrFloat idris_float_div0_1) <- fetch idris_float_div0
     (CGrFloat idris_float_div1_1) <- fetch idris_float_div1
@@ -446,6 +478,13 @@ idrisPrimOps = withPrimPrelude [progConst|
     (CGrString idris_str_len2) <- fetch idris_str_len1
     idris_str_len3 <- _prim_string_len idris_str_len2
     pure (CGrInt idris_str_len3)
+
+  idris_str_sub idris_str_sub1 idris_str_sub2 idris_str_sub3 =
+    (CGrInt idris_str_sub4) <- fetch idris_str_sub1
+    (CGrInt idris_str_sub5) <- fetch idris_str_sub2
+    (CGrString idris_str_sub6) <- fetch idris_str_sub3
+    idris_str_sub7 <- _prim_string_sub idris_str_sub4 idris_str_sub5 idris_str_sub6
+    pure (CGrString idris_str_sub7)
 
   idris_str_rev idris_str_rev1 =
     (CGrString idris_str_rev1_0) <- fetch idris_str_rev1

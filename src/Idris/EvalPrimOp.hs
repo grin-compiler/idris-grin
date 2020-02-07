@@ -83,8 +83,8 @@ primLiteralPrint _ _ [RT_Lit (LInt64 a)] = liftIO (putStr $ show a) >> pure RT_U
 primLiteralPrint _ _ [RT_Lit (LString a)] = liftIO (putStr (Text.unpack a)) >> pure RT_Unit
 primLiteralPrint ctx ps x = error $ Prelude.unwords ["primLiteralPrint", ctx, "- invalid arguments:", show ps, " - ", show x]
 
-evalPrimOp :: EvalReferences -> Name -> [Val] -> [RTVal] -> IO RTVal
-evalPrimOp (EvalReferences bufferRef handleRef mallocRef vmRef) name params args = case name of
+evalPrimOp :: String -> EvalReferences -> Name -> [Val] -> [RTVal] -> IO RTVal
+evalPrimOp execuableName (EvalReferences bufferRef handleRef mallocRef vmRef) name params args = case name of
   "_prim_int_print"    -> primLiteralPrint "int"    params args
   "_prim_string_print" -> primLiteralPrint "string" params args
   "_prim_string_index" -> primStringIndex
@@ -154,6 +154,7 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef vmRef) name params args
   "_prim_string_head"    -> string_un_op int (fromIntegral . ord . Text.head)
   "_prim_string_tail"    -> string_un_op string Text.tail
   "_prim_string_len"     -> string_un_op int (fromIntegral . Text.length)
+  "_prim_string_sub"     -> primStringSub
   "_prim_string_concat"  -> string_bin_op string (\t1 t2 -> Text.concat [t1, t2])
   "_prim_string_lt"      -> string_bin_op int (boolean 0 1 <$$> (<))
   "_prim_string_eq"      -> string_bin_op int (boolean 0 1 <$$> (==))
@@ -180,6 +181,7 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef vmRef) name params args
   "_prim_word_mul"  -> word_bin_op word (*)
   "_prim_word_div"  -> word_bin_op word div -- ???
   "_prim_word_udiv" -> word_bin_op word div
+  "_prim_word_urem" -> word_bin_op word mod
   "_prim_word_shl"  -> word_bin_op word (\v h -> shift v (fromIntegral h))
   "_prim_word_lshr" -> word_bin_op word (\v h -> shiftR v (fromIntegral h))
   "_prim_word_and"  -> word_bin_op word (.&.)
@@ -310,6 +312,11 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef vmRef) name params args
 
   primStringFloat = case args of
     [RT_Lit (LString str)] -> float $ read $ Text.unpack str
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primStringSub = case args of
+    [RT_Lit (LInt64 offset), RT_Lit (LInt64 len), RT_Lit (LString val)] ->
+      pure $ RT_Lit $ LString $ Text.take (fromIntegral len) $ Text.drop (fromIntegral offset) val
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   primUSleep = case args of
@@ -756,12 +763,12 @@ evalPrimOp (EvalReferences bufferRef handleRef mallocRef vmRef) name params args
   primNumArgs = case args of
     [] -> do
       args <- getArgs
-      pure $ RT_Lit $ LInt64 $ fromIntegral $ length args
+      pure $ RT_Lit $ LInt64 $ fromIntegral $ length args + 1
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   primGetArg = case args of
     [RT_Lit (LInt64 i)] -> do
-      args <- getArgs
+      args <- (execuableName:) <$> getArgs
       pure $ RT_Lit $ LString $ fromString $ args !! (fromIntegral i)
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 

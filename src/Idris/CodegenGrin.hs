@@ -27,6 +27,7 @@ import Text.PrettyPrint.ANSI.Leijen (ondullblack)
 import System.Process (callCommand)
 import System.Directory (removeFile)
 import System.IO (BufferMode(..), hSetBuffering, stdout)
+import System.Environment
 
 import Grin.Pretty
 import Grin.Grin as Grin
@@ -66,6 +67,8 @@ data Options = Options
   , output :: FilePath
   , outputGrin :: Bool
   , evalGrin :: Bool
+  , evalProgName :: String
+  , evalArgs :: [String]
   , optimise :: Bool
   , quiet :: Bool
   , help :: Bool
@@ -81,6 +84,8 @@ defaultOptions = Options
   , output = "a.out"
   , outputGrin = False
   , evalGrin = False
+  , evalProgName = "eval"
+  , evalArgs = []
   , optimise = True
   , quiet = False
   , help = False
@@ -95,22 +100,22 @@ codegenGrin :: Options -> CodegenInfo -> IO ()
 codegenGrin o@Options{..} CodegenInfo{..} = do
   hSetBuffering stdout NoBuffering
   postProcessing <- createPostProcessing
-  optimizeWith
-    (defaultOpts
-      { _poOutputDir = outputDir
-      , _poFailOnLint = False
-      , _poSaveTypeEnv = True
-      , _poStatistics = True
-      , _poLogging = not quiet
-      , _poLintOnChange = lint
-      , _poSaveBinary = saveInBinary
-      , _poCFiles = ["prim_ops.c", "runtime.c"]
-      })
-    (program simpleDecls)
-    preparation
-    (idrisOptimizations o)
-    (postProcessing o)
-  pure ()
+  void $ withProgName "IdrisGRIN" $ withArgs evalArgs $ do
+    optimizeWith
+      (defaultOpts
+        { _poOutputDir = outputDir
+        , _poFailOnLint = False
+        , _poSaveTypeEnv = True
+        , _poStatistics = True
+        , _poLogging = not quiet
+        , _poLintOnChange = lint
+        , _poSaveBinary = saveInBinary
+        , _poCFiles = ["prim_ops.c", "runtime.c"]
+        })
+      (program simpleDecls)
+      preparation
+      (idrisOptimizations o)
+      (postProcessing o)
 
 program :: [(Idris.Name, SDecl)] -> Exp
 program defs =
@@ -367,9 +372,11 @@ primFn f ps = case f of
   LUDiv   (Idris.ITFixed Idris.IT32) -> Grin.SApp "idris_bit32_udiv" ps
   LUDiv   (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_udiv" ps
   LUDiv   intTy               -> Grin.SApp "idris_int_udiv" ps
-{-
-  LURem intTy -> undefined
--}
+  LURem   (Idris.ITFixed Idris.IT8) -> Grin.SApp "idris_bit8_urem" ps
+  LURem   (Idris.ITFixed Idris.IT16) -> Grin.SApp "idris_bit16_urem" ps
+  LURem   (Idris.ITFixed Idris.IT32) -> Grin.SApp "idris_bit32_urem" ps
+  LURem   (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_urem" ps
+  LURem   intTy               -> Grin.SApp "idris_int_urem" ps
   LSRem   (Idris.ATInt intTy) -> Grin.SApp "idris_int_rem" ps
 {-
   LSRem   arithTy -> undefined
@@ -472,10 +479,7 @@ primFn f ps = case f of
   LStrCons  -> Grin.SApp "idris_str_cons" ps
   LStrIndex -> Grin.SApp "idris_str_idx"  ps
   LStrRev   -> Grin.SApp "idris_str_rev"  ps
-{-
-  LStrSubstr -> undefined
-}
--}
+  LStrSubstr -> Grin.SApp "idris_str_sub" ps
   LReadStr -> Grin.SApp "idris_read_str" ps
   LWriteStr -> Grin.SApp "idris_write_str" ps
 
@@ -528,7 +532,7 @@ preparation :: [PipelineStep]
 preparation =
   [ SaveGrin (Rel "FromIdris")
   , T SimpleDeadFunctionElimination
-  , T ProducerNameIntroduction
+--  , T ProducerNameIntroduction
   , T BindNormalisation
 --  , PrintGrin ondullblack
 --  , HPT PrintHPTResult
@@ -575,8 +579,8 @@ idrisOptimizations o =
 createPostProcessing :: IO (Options -> [PipelineStep])
 createPostProcessing = do
   buffer <- createBuffer
-  let evalPlugin = EvalPlugin { evalPluginPrimOp = evalPrimOp buffer }
+  let evalPlugin executableName = EvalPlugin { evalPluginPrimOp = evalPrimOp executableName buffer }
   pure $ \opt -> concat
     [ [ (if (outputGrin opt) then SaveGrin else (SaveExecutable (debugSymbols opt))) $ Abs $ output opt ]
-    , [ PureEvalPlugin evalPlugin | evalGrin opt ]
+    , [ PureEvalPlugin (evalPlugin (evalProgName opt)) | evalGrin opt ]
     ]

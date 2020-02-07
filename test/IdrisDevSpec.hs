@@ -21,6 +21,8 @@ spec = do
           , timeoutInSecs = 600       :: Int
           , withInclude   = True      :: Bool
           , package       = Nothing   :: Maybe String
+          , pendingReason = Nothing   :: Maybe String
+          , arguments     = Nothing   :: Maybe [String]
           }
 
   describe "In focus" $ do
@@ -31,25 +33,31 @@ spec = do
     pure $ maybe True (const False) env
 
   when notOnCI $ describe "Idris and Grin matches for" $ do
-    xit "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" $ testBackend "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr"
-    xit "test/idris-dev/totality015/totality015.idr" $ testBackend "test/idris-dev/totality015/totality015.idr"
-    xit "test/idris-dev/totality015/totality015a.idr" $ testBackend "test/idris-dev/totality015/totality015a.idr"
-    xit "test/idris-dev/tutorial002/tutorial002.idr" $ testBackend "test/idris-dev/tutorial002/tutorial002.idr"
-    xit "test/idris-dev/ffi010/ffi010.idr" $ testBackend "test/idris-dev/ffi010/ffi010.idr"
-    xit "test/idris-dev/effects003/hangman.idr" $ testBackend "test/idris-dev/effects003/hangman.idr"
-    xit "test/idris-dev/effects003/VectMissing.idr" $ testBackend "test/idris-dev/effects003/VectMissing.idr"
-    xit "test/idris-dev/effects004/effects004.idr" $ testBackend "test/idris-dev/effects004/effects004.idr"
-    xit "test/idris-dev/dsl001/test001.idr" $ testBackend "test/idris-dev/dsl001/test001.idr"
-    xit "test/idris-dev/dsl002/Resimp.idr" $ testBackend "test/idris-dev/dsl002/Resimp.idr"
-    xit "test/idris-dev/basic022/basic022.idr" $ testBackend "test/idris-dev/basic022/basic022.idr"
-    xit "test/idris-dev/basic012/basic012a.idr" $ testBackend "test/idris-dev/basic012/basic012a.idr"
-    xit "test/idris-dev/basic024/basic024.idr" $ testBackend "test/idris-dev/basic024/basic024.idr"
-    xit "test/idris-dev/proof001/test029.idr" $ testBackend "test/idris-dev/proof001/test029.idr"
-    xit "test/idris-dev/proof004/test035.idr" $ testBackend "test/idris-dev/proof004/test035.idr"
-    xit "test/idris-dev/proof005/DefaultArgSubstitutionSuccess.idr" $ testBackend "test/idris-dev/proof005/DefaultArgSubstitutionSuccess.idr"
-    xit "test/idris-dev/primitives001/substring.idr" $ testBackend "test/idris-dev/primitives001/substring.idr"
-    xit "test/idris-dev/reg001/TestEx.idr" $ testBackend "test/idris-dev/reg001/TestEx.idr"
-    xit "test/idris-dev/proofsearch002/Process.idr" $ testBackend "test/idris-dev/proofsearch002/Process.idr"
+    -- D Check xit "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" $ testBackend "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" -- TODO: Delete
+    -- D Check xit "test/idris-dev/totality015/totality015.idr" $ testBackend "test/idris-dev/totality015/totality015.idr"
+    -- D Check xit "test/idris-dev/totality015/totality015a.idr" $ testBackend "test/idris-dev/totality015/totality015a.idr"
+    -- D Check xit "test/idris-dev/tutorial002/tutorial002.idr" $ testBackend "test/idris-dev/tutorial002/tutorial002.idr"
+    -- D JS xit "test/idris-dev/ffi010/ffi010.idr" $ testBackend "test/idris-dev/ffi010/ffi010.idr"
+    it "test/idris-dev/effects003/hangman.idr" $ (testBackend "test/idris-dev/effects003/hangman.idr")
+      { package = Just "effects"
+      , input   = Just $ unlines ["a", "e", "i", "o", "j", "v"]
+      }
+    it "test/idris-dev/effects004/effects004.idr" $ (testBackend "test/idris-dev/effects004/effects004.idr")
+      { package = Just "effects"
+      , input   = Just $ unlines ["", "", "", "", "", "", "", "", "done", "", ""]
+      }
+    it "test/idris-dev/dsl001/test001.idr" $ testBackend "test/idris-dev/dsl001/test001.idr"
+    -- D some linking error xit "test/idris-dev/basic022/basic022.idr" $ testBackend "test/idris-dev/basic022/basic022.idr"
+    it "test/idris-dev/basic024/basic024.idr" $ testBackend "test/idris-dev/basic024/basic024.idr"
+    -- D xit "test/idris-dev/proof001/test029.idr" $ testBackend "test/idris-dev/proof001/test029.idr"
+    -- D xit "test/idris-dev/proof004/test035.idr" $ testBackend "test/idris-dev/proof004/test035.idr"
+    -- D xit "test/idris-dev/proof005/DefaultArgSubstitutionSuccess.idr" $ testBackend "test/idris-dev/proof005/DefaultArgSubstitutionSuccess.idr"
+    it "test/idris-dev/primitives001/substring.idr" $ (testBackend "test/idris-dev/primitives001/substring.idr")
+      { input = Just $ unlines
+          [ "Idris 是一个通用的依赖类型纯函数式编程语言，其类型系统与 Agda 以及 Epigram 相似。"
+          , "Idris is a general-purpose purely functional programming language with dependent types."
+          ]
+      }
     it "test/idris-dev/basic001/basic001a.idr" $ testBackend "test/idris-dev/basic001/basic001a.idr"
     it "test/idris-dev/basic001/reg005.idr" $ testBackend "test/idris-dev/basic001/reg005.idr"
     it "test/idris-dev/basic003/test027.idr" $ testBackend "test/idris-dev/basic003/test027.idr"
@@ -58,14 +66,17 @@ spec = do
     it "test/idris-dev/basic007/test033.idr" $ testBackend "test/idris-dev/basic007/test033.idr"
     it "test/idris-dev/basic008/test036.idr" $ testBackend "test/idris-dev/basic008/test036.idr"
     it "test/idris-dev/basic010/Main.idr" $ testBackend "test/idris-dev/basic010/Main.idr"
-    it "test/idris-dev/basic011/basic011.idr" $ (testBackend "test/idris-dev/basic011/basic011.idr") { package = Just "contrib" }
+    it "test/idris-dev/basic011/basic011.idr" $ (testBackend "test/idris-dev/basic011/basic011.idr")
+      { package = Just "contrib" }
     it "test/idris-dev/basic012/basic012.idr" $ testBackend "test/idris-dev/basic012/basic012.idr"
     it "test/idris-dev/basic013/basic013.idr" $ testBackend "test/idris-dev/basic013/basic013.idr"
     it "test/idris-dev/basic015/basic015.idr" $ testBackend "test/idris-dev/basic015/basic015.idr"
     it "test/idris-dev/basic019/basic019.idr" $ testBackend "test/idris-dev/basic019/basic019.idr"
     it "test/idris-dev/basic020/basic020.idr" $ testBackend "test/idris-dev/basic020/basic020.idr"
-    xit "test/idris-dev/basic021/basic021.idr" $ testBackend "test/idris-dev/basic021/basic021.idr"
-    xit "test/idris-dev/basic021/basic021_2.idr" $ testBackend "test/idris-dev/basic021/basic021_2.idr"
+    it "test/idris-dev/basic021/basic021.idr" $ (testBackend "test/idris-dev/basic021/basic021.idr")
+      { pendingReason = Just "Need to implement IORef." }
+    it "test/idris-dev/basic021/basic021_2.idr" $ (testBackend "test/idris-dev/basic021/basic021_2.idr")
+      { pendingReason = Just "Need to implement IORef." }
     it "test/idris-dev/basic023/sections.idr" $ testBackend "test/idris-dev/basic023/sections.idr"
     it "test/idris-dev/basic025/basic025.idr" $ testBackend "test/idris-dev/basic025/basic025.idr"
     it "test/idris-dev/basic026/basic026.idr" $ testBackend "test/idris-dev/basic026/basic026.idr"
@@ -75,23 +86,29 @@ spec = do
     it "test/idris-dev/bounded001/bounded001.idr" $ testBackend "test/idris-dev/bounded001/bounded001.idr"
     it "test/idris-dev/buffer001/buffer001.idr" $ testBackend "test/idris-dev/buffer001/buffer001.idr"
     it "test/idris-dev/buffer002/buffer002.idr" $ testBackend "test/idris-dev/buffer002/buffer002.idr"
-    xit "test/idris-dev/contrib001/contrib001.idr" $ (testBackend "test/idris-dev/contrib001/contrib001.idr") { package = Just "contrib" }
+    it "test/idris-dev/contrib001/contrib001.idr" $ (testBackend "test/idris-dev/contrib001/contrib001.idr")
+      { package = Just "contrib" }
     it "test/idris-dev/corecords001/corecords001.idr" $ testBackend "test/idris-dev/corecords001/corecords001.idr"
     it "test/idris-dev/corecords002/corecords002.idr" $ testBackend "test/idris-dev/corecords002/corecords002.idr"
-    xit "test/idris-dev/directives003/directives003.idr" $ testBackend "test/idris-dev/directives003/directives003.idr"
-    xit "test/idris-dev/dsl002/test014.idr" $ testBackend "test/idris-dev/dsl002/test014.idr"
-    it "test/idris-dev/effects001/test021.idr" $ (testBackend "test/idris-dev/effects001/test021.idr") { package = Just "effects" }
-    it "test/idris-dev/effects001/test021a.idr" $ (testBackend "test/idris-dev/effects001/test021a.idr") { package = Just "effects" }
-    it "test/idris-dev/effects002/test025.idr" $ (testBackend "test/idris-dev/effects002/test025.idr")  { package = Just "effects" }
+    -- D checks linking xit "test/idris-dev/directives003/directives003.idr" $ testBackend "test/idris-dev/directives003/directives003.idr"
+    it "test/idris-dev/dsl002/test014.idr" $ (testBackend "test/idris-dev/dsl002/test014.idr")
+      { pendingReason = Just "Implement prim__readFile" }
+    it "test/idris-dev/effects001/test021.idr" $ (testBackend "test/idris-dev/effects001/test021.idr")
+      { package = Just "effects" }
+    it "test/idris-dev/effects001/test021a.idr" $ (testBackend "test/idris-dev/effects001/test021a.idr")
+      { package = Just "effects" }
+    it "test/idris-dev/effects002/test025.idr" $ (testBackend "test/idris-dev/effects002/test025.idr")
+      { package = Just "effects" }
     it "test/idris-dev/effects005/categoryLogger.idr" $ (testBackend "test/idris-dev/effects005/categoryLogger.idr") { package = Just "effects" }
     it "test/idris-dev/effects005/defaultLogger.idr" $ (testBackend "test/idris-dev/effects005/defaultLogger.idr") { package = Just "effects" }
-    xit "test/idris-dev/ffi001/test022.idr" $ testBackend "test/idris-dev/ffi001/test022.idr"
-    xit "test/idris-dev/ffi003/test024.idr" $ testBackend "test/idris-dev/ffi003/test024.idr"
-    xit "test/idris-dev/ffi005/Postulate.idr" $ testBackend "test/idris-dev/ffi005/Postulate.idr"
-    xit "test/idris-dev/ffi007/ffi007.idr" $ testBackend "test/idris-dev/ffi007/ffi007.idr"
-    xit "test/idris-dev/ffi008/ffi008.idr" $ (testBackend "test/idris-dev/ffi008/ffi008.idr") { package = Just "contrib" }
-    xit "test/idris-dev/ffi009/Bad.idr" $ testBackend "test/idris-dev/ffi009/Bad.idr"
-    xit "test/idris-dev/ffi009/Good.idr" $ testBackend "test/idris-dev/ffi009/Good.idr"
+    -- D no libffi xit "test/idris-dev/ffi001/test022.idr" $ testBackend "test/idris-dev/ffi001/test022.idr"
+    it "test/idris-dev/ffi003/test024.idr" $ (testBackend "test/idris-dev/ffi003/test024.idr")
+      { input = Just "test\n" }
+    -- D no ffi xit "test/idris-dev/ffi005/Postulate.idr" $ testBackend "test/idris-dev/ffi005/Postulate.idr"
+    -- D no ffi it "test/idris-dev/ffi007/ffi007.idr" $ testBackend "test/idris-dev/ffi007/ffi007.idr"
+    -- D needs ffi xit "test/idris-dev/ffi008/ffi008.idr" $ (testBackend "test/idris-dev/ffi008/ffi008.idr") { package = Just "contrib" }
+    -- D testing bad xit "test/idris-dev/ffi009/Bad.idr" $ testBackend "test/idris-dev/ffi009/Bad.idr"
+    -- D needs ffi xit "test/idris-dev/ffi009/Good.idr" $ testBackend "test/idris-dev/ffi009/Good.idr"
     it "test/idris-dev/folding001/folding001.idr" $ testBackend "test/idris-dev/folding001/folding001.idr"
     it "test/idris-dev/interfaces002/interfaces002.idr" $ testBackend "test/idris-dev/interfaces002/interfaces002.idr"
     it "test/idris-dev/interfaces003/interfaces003.idr" $ testBackend "test/idris-dev/interfaces003/interfaces003.idr"
@@ -100,11 +117,12 @@ spec = do
     it "test/idris-dev/io001/test004.idr" $ testBackend "test/idris-dev/io001/test004.idr" -- Remove test file?
     it "test/idris-dev/io002/test008.idr" $ testBackend "test/idris-dev/io002/test008.idr"
     it "test/idris-dev/io003/test018.idr" $ testBackend "test/idris-dev/io003/test018.idr"
-    it "test/idris-dev/io003/test018a.idr" $ (testBackend "test/idris-dev/io003/test018a.idr") { package = Just "contrib" }
-    xit "test/idris-dev/literate001/Lit.lidr" $ testBackend "test/idris-dev/literate001/Lit.lidr"
+    it "test/idris-dev/io003/test018a.idr" $ (testBackend "test/idris-dev/io003/test018a.idr")
+      { package = Just "contrib" }
     it "test/idris-dev/literate001/test003.lidr" $ testBackend "test/idris-dev/literate001/test003.lidr"
-    xit "test/idris-dev/literate001/test003a.lidr" $ testBackend "test/idris-dev/literate001/test003a.lidr"
-    xit "test/idris-dev/pkg001/Main.idr" $ testBackend "test/idris-dev/pkg001/Main.idr"
+    -- D negative test case for literate xit "test/idris-dev/literate001/test003a.lidr" $ testBackend "test/idris-dev/literate001/test003a.lidr"
+    it "test/idris-dev/pkg001/Main.idr" $ (testBackend "test/idris-dev/pkg001/Main.idr")
+      { package = Just "effects" }
     it "test/idris-dev/pkg002/Main.idr" $ testBackend "test/idris-dev/pkg002/Main.idr"
     it "test/idris-dev/pkg003/Main.idr" $ testBackend "test/idris-dev/pkg003/Main.idr"
     it "test/idris-dev/pkg004/Main.idr" $ testBackend "test/idris-dev/pkg004/Main.idr"
@@ -112,10 +130,11 @@ spec = do
     it "test/idris-dev/primitives001/test005.idr" $ testBackend "test/idris-dev/primitives001/test005.idr"
     it "test/idris-dev/primitives003/test038.idr" $ testBackend "test/idris-dev/primitives003/test038.idr"
     it "test/idris-dev/primitives005/primitives005.idr" $ testBackend "test/idris-dev/primitives005/primitives005.idr"
-    xit "test/idris-dev/primitives006/load-test.idr" $ testBackend "test/idris-dev/primitives006/load-test.idr"
+    it "test/idris-dev/primitives006/load-test.idr" $ (testBackend "test/idris-dev/primitives006/load-test.idr")
+      { pendingReason = Just "Needs support for  linking." }
     it "test/idris-dev/proof010/proof010.idr" $ testBackend "test/idris-dev/proof010/proof010.idr"
     it "test/idris-dev/proofsearch001/proofsearch001.idr" $ testBackend "test/idris-dev/proofsearch001/proofsearch001.idr"
-    xit "test/idris-dev/proofsearch002/proofsearch002.idr" $ testBackend "test/idris-dev/proofsearch002/proofsearch002.idr"
+    it "test/idris-dev/proofsearch002/proofsearch002.idr" $ testBackend "test/idris-dev/proofsearch002/proofsearch002.idr"
     it "test/idris-dev/quasiquote002/GoalQQuote.idr" $ testBackend "test/idris-dev/quasiquote002/GoalQQuote.idr"
     it "test/idris-dev/records001/test011.idr" $ testBackend "test/idris-dev/records001/test011.idr"
     it "test/idris-dev/records002/record002.idr" $ testBackend "test/idris-dev/records002/record002.idr"
@@ -137,19 +156,27 @@ spec = do
     it "test/idris-dev/reg041/showu.idr" $ testBackend "test/idris-dev/reg041/showu.idr"
     it "test/idris-dev/reg042/reg042.idr" $ testBackend "test/idris-dev/reg042/reg042.idr"
     it "test/idris-dev/reg045/reg045.idr" $ testBackend "test/idris-dev/reg045/reg045.idr"
-    it "test/idris-dev/reg048/reg048.idr" $ (testBackend "test/idris-dev/reg048/reg048.idr") { package = Just "contrib" }
+    it "test/idris-dev/reg048/reg048.idr" $ (testBackend "test/idris-dev/reg048/reg048.idr")
+      { package = Just "contrib" }
     it "test/idris-dev/reg052/reg052.idr" $ testBackend "test/idris-dev/reg052/reg052.idr"
     it "test/idris-dev/reg067/reg067.idr" $ testBackend "test/idris-dev/reg067/reg067.idr"
     it "test/idris-dev/reg076/reg076.idr" $ testBackend "test/idris-dev/reg076/reg076.idr"
     it "test/idris-dev/regression003/regression003.idr" $ testBackend "test/idris-dev/regression003/regression003.idr"
     it "test/idris-dev/sourceLocation001/SourceLoc.idr" $ testBackend "test/idris-dev/sourceLocation001/SourceLoc.idr"
-    it "test/idris-dev/st001/test001.idr" $ (testBackend "test/idris-dev/st001/test001.idr") { package = Just "contrib" }
-    it "test/idris-dev/st002/test002.idr" $ (testBackend "test/idris-dev/st002/test002.idr") { package = Just "contrib" }
-    it "test/idris-dev/st003/test003.idr" $ (testBackend "test/idris-dev/st003/test003.idr") { package = Just "contrib" }
-    it "test/idris-dev/st004/test004.idr" $ (testBackend "test/idris-dev/st004/test004.idr") { package = Just "contrib" }
-    it "test/idris-dev/st005/test005.idr" $ (testBackend "test/idris-dev/st005/test005.idr") { package = Just "contrib" }
-    it "test/idris-dev/st006/test006.idr" $ (testBackend "test/idris-dev/st006/test006.idr") { package = Just "contrib" }
-    it "test/idris-dev/st007/test007.idr" $ (testBackend "test/idris-dev/st007/test007.idr") { package = Just "contrib" }
+    it "test/idris-dev/st001/test001.idr" $ (testBackend "test/idris-dev/st001/test001.idr")
+      { package = Just "contrib" }
+    it "test/idris-dev/st002/test002.idr" $ (testBackend "test/idris-dev/st002/test002.idr")
+      { package = Just "contrib" }
+    it "test/idris-dev/st003/test003.idr" $ (testBackend "test/idris-dev/st003/test003.idr")
+      { package = Just "contrib" }
+    it "test/idris-dev/st004/test004.idr" $ (testBackend "test/idris-dev/st004/test004.idr")
+      { package = Just "contrib" }
+    it "test/idris-dev/st005/test005.idr" $ (testBackend "test/idris-dev/st005/test005.idr")
+      { package = Just "contrib" }
+    it "test/idris-dev/st006/test006.idr" $ (testBackend "test/idris-dev/st006/test006.idr")
+      { package = Just "contrib" }
+    it "test/idris-dev/st007/test007.idr" $ (testBackend "test/idris-dev/st007/test007.idr")
+      { package = Just "contrib" }
     it "test/idris-dev/sugar001/test007.idr" $ testBackend "test/idris-dev/sugar001/test007.idr"
     it "test/idris-dev/sugar002/test009.idr" $ testBackend "test/idris-dev/sugar002/test009.idr"
     it "test/idris-dev/sugar003/test013.idr" $ testBackend "test/idris-dev/sugar003/test013.idr"
@@ -157,10 +184,11 @@ spec = do
     it "test/idris-dev/sugar005/As.idr" $ testBackend "test/idris-dev/sugar005/As.idr"
     it "test/idris-dev/syntax002/syntax002.idr" $ testBackend "test/idris-dev/syntax002/syntax002.idr"
     it "test/idris-dev/totality005/totality005.idr" $ testBackend "test/idris-dev/totality005/totality005.idr"
-    xit "test/idris-dev/tutorial007/Providers.idr" $ testBackend "test/idris-dev/tutorial007/Providers.idr"
-    xit "test/idris-dev/tutorial007/tutorial007.idr" $ testBackend "test/idris-dev/tutorial007/tutorial007.idr"
+    -- D no ffi xit "test/idris-dev/tutorial007/Providers.idr" $ testBackend "test/idris-dev/tutorial007/Providers.idr"
+    -- D no ffi xit "test/idris-dev/tutorial007/tutorial007.idr" $ testBackend "test/idris-dev/tutorial007/tutorial007.idr"
     it "test/idris-dev/unique001/unique001.idr" $ testBackend "test/idris-dev/unique001/unique001.idr"
     it "test/idris-dev/views001/views001.idr" $ testBackend "test/idris-dev/views001/views001.idr"
     it "test/idris-dev/views001/views001a.idr" $ testBackend "test/idris-dev/views001/views001a.idr"
     it "test/idris-dev/views002/views002.idr" $ testBackend "test/idris-dev/views002/views002.idr"
-    xit "test/idris-dev/views003/views003.idr" $ testBackend "test/idris-dev/views003/views003.idr"
+    it "test/idris-dev/views003/views003.idr" $ (testBackend "test/idris-dev/views003/views003.idr")
+      { arguments = Just ["10"] }
