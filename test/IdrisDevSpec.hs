@@ -33,11 +33,6 @@ spec = do
     pure $ maybe True (const False) env
 
   when notOnCI $ describe "Idris and Grin matches for" $ do
-    -- D Check xit "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" $ testBackend "test/idris-dev/proof006/DefaultArgSubstitutionSyntax.idr" -- TODO: Delete
-    -- D Check xit "test/idris-dev/totality015/totality015.idr" $ testBackend "test/idris-dev/totality015/totality015.idr"
-    -- D Check xit "test/idris-dev/totality015/totality015a.idr" $ testBackend "test/idris-dev/totality015/totality015a.idr"
-    -- D Check xit "test/idris-dev/tutorial002/tutorial002.idr" $ testBackend "test/idris-dev/tutorial002/tutorial002.idr"
-    -- D JS xit "test/idris-dev/ffi010/ffi010.idr" $ testBackend "test/idris-dev/ffi010/ffi010.idr"
     it "test/idris-dev/effects003/hangman.idr" $ (testBackend "test/idris-dev/effects003/hangman.idr")
       { package = Just "effects"
       , input   = Just $ unlines ["a", "e", "i", "o", "j", "v"]
@@ -47,11 +42,7 @@ spec = do
       , input   = Just $ unlines ["", "", "", "", "", "", "", "", "done", "", ""]
       }
     it "test/idris-dev/dsl001/test001.idr" $ testBackend "test/idris-dev/dsl001/test001.idr"
-    -- D some linking error xit "test/idris-dev/basic022/basic022.idr" $ testBackend "test/idris-dev/basic022/basic022.idr"
     it "test/idris-dev/basic024/basic024.idr" $ testBackend "test/idris-dev/basic024/basic024.idr"
-    -- D xit "test/idris-dev/proof001/test029.idr" $ testBackend "test/idris-dev/proof001/test029.idr"
-    -- D xit "test/idris-dev/proof004/test035.idr" $ testBackend "test/idris-dev/proof004/test035.idr"
-    -- D xit "test/idris-dev/proof005/DefaultArgSubstitutionSuccess.idr" $ testBackend "test/idris-dev/proof005/DefaultArgSubstitutionSuccess.idr"
     it "test/idris-dev/primitives001/substring.idr" $ (testBackend "test/idris-dev/primitives001/substring.idr")
       { input = Just $ unlines
           [ "Idris 是一个通用的依赖类型纯函数式编程语言，其类型系统与 Agda 以及 Epigram 相似。"
@@ -90,7 +81,6 @@ spec = do
       { package = Just "contrib" }
     it "test/idris-dev/corecords001/corecords001.idr" $ testBackend "test/idris-dev/corecords001/corecords001.idr"
     it "test/idris-dev/corecords002/corecords002.idr" $ testBackend "test/idris-dev/corecords002/corecords002.idr"
-    -- D checks linking xit "test/idris-dev/directives003/directives003.idr" $ testBackend "test/idris-dev/directives003/directives003.idr"
     it "test/idris-dev/dsl002/test014.idr" $ (testBackend "test/idris-dev/dsl002/test014.idr")
       { pendingReason = Just "Implement prim__readFile" }
     it "test/idris-dev/effects001/test021.idr" $ (testBackend "test/idris-dev/effects001/test021.idr")
@@ -101,14 +91,8 @@ spec = do
       { package = Just "effects" }
     it "test/idris-dev/effects005/categoryLogger.idr" $ (testBackend "test/idris-dev/effects005/categoryLogger.idr") { package = Just "effects" }
     it "test/idris-dev/effects005/defaultLogger.idr" $ (testBackend "test/idris-dev/effects005/defaultLogger.idr") { package = Just "effects" }
-    -- D no libffi xit "test/idris-dev/ffi001/test022.idr" $ testBackend "test/idris-dev/ffi001/test022.idr"
     it "test/idris-dev/ffi003/test024.idr" $ (testBackend "test/idris-dev/ffi003/test024.idr")
       { input = Just "test\n" }
-    -- D no ffi xit "test/idris-dev/ffi005/Postulate.idr" $ testBackend "test/idris-dev/ffi005/Postulate.idr"
-    -- D no ffi it "test/idris-dev/ffi007/ffi007.idr" $ testBackend "test/idris-dev/ffi007/ffi007.idr"
-    -- D needs ffi xit "test/idris-dev/ffi008/ffi008.idr" $ (testBackend "test/idris-dev/ffi008/ffi008.idr") { package = Just "contrib" }
-    -- D testing bad xit "test/idris-dev/ffi009/Bad.idr" $ testBackend "test/idris-dev/ffi009/Bad.idr"
-    -- D needs ffi xit "test/idris-dev/ffi009/Good.idr" $ testBackend "test/idris-dev/ffi009/Good.idr"
     it "test/idris-dev/folding001/folding001.idr" $ testBackend "test/idris-dev/folding001/folding001.idr"
     it "test/idris-dev/interfaces002/interfaces002.idr" $ testBackend "test/idris-dev/interfaces002/interfaces002.idr"
     it "test/idris-dev/interfaces003/interfaces003.idr" $ testBackend "test/idris-dev/interfaces003/interfaces003.idr"
@@ -120,7 +104,6 @@ spec = do
     it "test/idris-dev/io003/test018a.idr" $ (testBackend "test/idris-dev/io003/test018a.idr")
       { package = Just "contrib" }
     it "test/idris-dev/literate001/test003.lidr" $ testBackend "test/idris-dev/literate001/test003.lidr"
-    -- D negative test case for literate xit "test/idris-dev/literate001/test003a.lidr" $ testBackend "test/idris-dev/literate001/test003a.lidr"
     it "test/idris-dev/pkg001/Main.idr" $ (testBackend "test/idris-dev/pkg001/Main.idr")
       { package = Just "effects" }
     it "test/idris-dev/pkg002/Main.idr" $ testBackend "test/idris-dev/pkg002/Main.idr"
@@ -134,7 +117,8 @@ spec = do
       { pendingReason = Just "Needs support for  linking." }
     it "test/idris-dev/proof010/proof010.idr" $ testBackend "test/idris-dev/proof010/proof010.idr"
     it "test/idris-dev/proofsearch001/proofsearch001.idr" $ testBackend "test/idris-dev/proofsearch001/proofsearch001.idr"
-    it "test/idris-dev/proofsearch002/proofsearch002.idr" $ testBackend "test/idris-dev/proofsearch002/proofsearch002.idr"
+    it "test/idris-dev/proofsearch002/proofsearch002.idr" $ (testBackend "test/idris-dev/proofsearch002/proofsearch002.idr")
+      { pendingReason = Just "Infinite loop." }
     it "test/idris-dev/quasiquote002/GoalQQuote.idr" $ testBackend "test/idris-dev/quasiquote002/GoalQQuote.idr"
     it "test/idris-dev/records001/test011.idr" $ testBackend "test/idris-dev/records001/test011.idr"
     it "test/idris-dev/records002/record002.idr" $ testBackend "test/idris-dev/records002/record002.idr"
@@ -184,8 +168,6 @@ spec = do
     it "test/idris-dev/sugar005/As.idr" $ testBackend "test/idris-dev/sugar005/As.idr"
     it "test/idris-dev/syntax002/syntax002.idr" $ testBackend "test/idris-dev/syntax002/syntax002.idr"
     it "test/idris-dev/totality005/totality005.idr" $ testBackend "test/idris-dev/totality005/totality005.idr"
-    -- D no ffi xit "test/idris-dev/tutorial007/Providers.idr" $ testBackend "test/idris-dev/tutorial007/Providers.idr"
-    -- D no ffi xit "test/idris-dev/tutorial007/tutorial007.idr" $ testBackend "test/idris-dev/tutorial007/tutorial007.idr"
     it "test/idris-dev/unique001/unique001.idr" $ testBackend "test/idris-dev/unique001/unique001.idr"
     it "test/idris-dev/views001/views001.idr" $ testBackend "test/idris-dev/views001/views001.idr"
     it "test/idris-dev/views001/views001a.idr" $ testBackend "test/idris-dev/views001/views001a.idr"

@@ -46,6 +46,8 @@ PLAN
     [ ] Arithmetic for Integer types
     [ ] Handle BIG Integers
     [ ] Implement IORef with parametric primitives
+    [ ] Implement Idris VM and multithreading
+    [ ] VMs are handles as pointers to
 [ ] Implement C FFI
     [ ] Mapping C types to Idris Tagged types
     [ ] Compilation of C files
@@ -532,17 +534,11 @@ preparation :: [PipelineStep]
 preparation =
   [ SaveGrin (Rel "FromIdris")
   , T SimpleDeadFunctionElimination
---  , T ProducerNameIntroduction
   , T BindNormalisation
---  , PrintGrin ondullblack
---  , HPT PrintHPTResult
---  , PrintTypeEnv
+  --, HPTPass
+  --, SaveTypeEnv
   , Statistics
---  , SaveTypeEnv
---  , HPT PrintHPTCode
   , SaveGrin (Rel "high-level-code.grin")
---  , HPTPass
---  , Lint
   ]
 
 idrisOptimizations :: Options -> [Transformation]

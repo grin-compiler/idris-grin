@@ -32,6 +32,7 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_peek64    :: T_Word64 -> T_Int64 -> T_Word64
     _prim_num_args  :: T_Int64
     _prim_get_arg   :: T_Int64 -> T_String
+    _prim_check_messages_timeout :: T_Word64 -> T_Int64 -> T_Word64
 
   ffi effectful
     _prim_int_print     :: T_Int64  -> T_Unit
@@ -967,9 +968,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     pure (CGrUnit)
 
   idris_checkMessagesTimeout idris_checkMessagesTimeout1 idris_checkMessagesTimeout2 =
-    (CGrUndefined92) <- fetch idris_checkMessagesTimeout1
-    (CGrUndefined93) <- fetch idris_checkMessagesTimeout2
-    pure (CGrUndefined94)
+    (CGrVM  idris_checkMessagesTimeout3) <- fetch idris_checkMessagesTimeout1
+    (CGrInt idris_checkMessagesTimeout4) <- fetch idris_checkMessagesTimeout2
+    idris_checkMessagesTimeout5 <- _prim_check_messages_timeout idris_checkMessagesTimeout3 idris_checkMessagesTimeout4
+    -- VMs are considered as pointers...
+    pure (CGrPtr idris_checkMessagesTimeout5)
 
   idris_getMsg idris_getMsg1 =
     (CGrUndefined95) <- fetch idris_getMsg1

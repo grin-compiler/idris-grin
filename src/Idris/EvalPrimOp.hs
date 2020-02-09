@@ -123,6 +123,7 @@ evalPrimOp execuableName (EvalReferences bufferRef handleRef mallocRef vmRef) na
   "_prim_get_vm"       -> primGetVM
   "_prim_num_args"     -> primNumArgs
   "_prim_get_arg"      -> primGetArg
+  "_prim_check_messages_timeout" -> primCheckMessagesTimeout
 
   -- Buffer
   "_prim_new_buffer"        -> primNewBuffer
@@ -757,7 +758,12 @@ evalPrimOp execuableName (EvalReferences bufferRef handleRef mallocRef vmRef) na
 
   primGetVM = case args of
     [_] -> do
-      pure $ RT_Lit $ LWord64 0
+      pure $ RT_Lit $ LWord64 0 -- TODO: Model the Idris VM
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  primCheckMessagesTimeout = case args of
+    [RT_Lit (LWord64 vm), RT_Lit (LInt64 delay)] ->
+      pure $ RT_Lit $ LWord64 0 -- TODO: Model the Idris VM
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   primNumArgs = case args of
