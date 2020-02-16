@@ -174,3 +174,8 @@ spec = do
     it "test/idris-dev/views002/views002.idr" $ testBackend "test/idris-dev/views002/views002.idr"
     it "test/idris-dev/views003/views003.idr" $ (testBackend "test/idris-dev/views003/views003.idr")
       { arguments = Just ["10"] }
+
+    -- TODO: Move to IdrisExperiments
+    it "test/experiments/counting-immutable-beans/Main.idr" $ (testBackend "test/experiments/counting-immutable-beans/Main.idr")
+      { package = Just "contrib"
+      }
