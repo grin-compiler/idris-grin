@@ -158,6 +158,9 @@ idrisPrimOps = withPrimPrelude [progConst|
     _prim_bool_eq   :: T_Bool -> T_Bool -> T_Bool
     _prim_bool_ne   :: T_Bool -> T_Bool -> T_Bool
 
+    -- Cast
+    _prim_int_bigint :: T_Int64 -> T_Int64
+
   prim__null =
     prim__null1 <- _prim_null
     pure (CGrPtr prim__null1)
@@ -564,6 +567,11 @@ idrisPrimOps = withPrimPrelude [progConst|
     (CGrPtr idris_ffi_file_eof1_0) <- fetch idris_ffi_file_eof1
     idris_ffi_file_eof2 <- _prim_file_eof idris_ffi_file_eof1_0
     pure (CGrInt idris_ffi_file_eof2)
+
+  idris_lz_ext_int_bigint idris_lz_ext_int_bigint1 =
+    (CGrInt idris_lz_ext_int_bigint2) <- fetch idris_lz_ext_int_bigint1
+    idris_lz_ext_int_bigint3 <- _prim_int_bigint idris_lz_ext_int_bigint2
+    pure (CGrInt idris_lz_ext_int_bigint3)
 
   idris_lz_ext_int_bit64 idris_lz_ext_int_bit64_1 =
     (CGrInt idris_lz_ext_int_bit64_2) <- fetch idris_lz_ext_int_bit64_1

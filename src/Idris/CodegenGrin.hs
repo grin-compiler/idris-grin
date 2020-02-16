@@ -135,9 +135,11 @@ function (SFun fname params _int body) =
 
 loc :: Name -> LVar -> Val
 loc fname (Idris.Loc i) = Var $ packName $ unpackName fname ++ show i
+loc _ _ = error "loc"
 
 locVal :: Name -> LVar -> Val
 locVal fname (Idris.Loc i) = Var $ packName $ unpackName fname ++ show i ++ "_val"
+locVal _ _ = error "locVal"
 
 lvar :: Name -> LVar -> Val
 lvar fname = Var . \case
@@ -200,6 +202,7 @@ sexp fname = \case
 
 variableName :: Val -> Name
 variableName (Var n) = n
+variableName _ = error "variableName"
 
 foreignFun fname _ (FStr "idris_int_print") [(_, arg)]
   = Grin.SApp "idris_int_print" [lvar fname $ arg]
@@ -335,11 +338,13 @@ constAlternativesByTag = groupBy sameTag
       | ConstTagNode t1 _ <- literal c1
       , ConstTagNode t2 _ <- literal c2
       = t1 == t2
+    sameTag _ _ = error "constAlternativesByTag"
 
 constructorAlt :: Name -> SAlt -> Exp
 constructorAlt fname (SConCase startIdx t nm names sexp0) =
   Alt (NodePat (Tag C (name nm)) (map (\(i,_n) -> packName $ unpackName fname ++ show i) ([startIdx ..] `zip` names)))
       (sexp fname sexp0)
+constructorAlt _ _ = error "constructorAlt"
 
 constantAlts :: Name -> [Exp] -> [SAlt] -> Exp
 constantAlts fname defs as@(a@(SConstCase cnst _):_) =
@@ -351,113 +356,434 @@ constantAlts fname defs as@(a@(SConstCase cnst _):_) =
   where
     (ConstTagNode tag [Lit lit]) = literal cnst
     cpatVar = packName $ unpackName fname ++ "_cpat_" ++ (map (\case { ' ' -> '_'; c -> c}) (show lit))
+constantAlts _ _ _ = error "constantAlts"
 
 defaultAlt :: Name -> SAlt -> Exp
 defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat (sexp fname sexp0)
+defaultAlt _ _ = error "defaultAlt"
 
 primFn :: Idris.PrimFn -> [SimpleVal] -> Exp
 primFn f ps = case f of
-  LPlus   Idris.ATFloat               -> Grin.SApp "idris_float_add" ps
-  LPlus   (Idris.ATInt Idris.ITChar)  -> Grin.SApp "idris_int_add" ps
-  LPlus   (Idris.ATInt Idris.ITBig)   -> Grin.SApp "idris_int_add" ps
-  LPlus   (Idris.ATInt (Idris.ITFixed Idris.IT64)) -> Grin.SApp "idris_bit64_add" ps
-  LPlus   (Idris.ATInt intTy) -> Grin.SApp "idris_int_add" ps
-  LMinus  (Idris.ATInt intTy) -> Grin.SApp "idris_int_sub" ps
-  LMinus  Idris.ATFloat       -> Grin.SApp "idris_float_sub" ps
+  LPlus   (Idris.ATInt Idris.ITChar)                -> Grin.SApp "idris_int_add" ps
+  LPlus   (Idris.ATInt Idris.ITBig)                 -> Grin.SApp "idris_int_add" ps
+  LPlus   (Idris.ATInt Idris.ITNative)              -> Grin.SApp "idris_int_add" ps
+  LPlus   (Idris.ATInt (Idris.ITFixed Idris.IT8))   -> undefined
+  LPlus   (Idris.ATInt (Idris.ITFixed Idris.IT16))  -> undefined
+  LPlus   (Idris.ATInt (Idris.ITFixed Idris.IT32))  -> undefined
+  LPlus   (Idris.ATInt (Idris.ITFixed Idris.IT64))  -> Grin.SApp "idris_bit64_add" ps
+  LPlus   Idris.ATFloat                             -> Grin.SApp "idris_float_add" ps
+
+  LMinus  (Idris.ATInt Idris.ITChar)                -> Grin.SApp "idris_int_sub" ps
+  LMinus  (Idris.ATInt Idris.ITBig)                 -> Grin.SApp "idris_int_sub" ps
+  LMinus  (Idris.ATInt Idris.ITNative)              -> Grin.SApp "idris_int_sub" ps
+  LMinus  (Idris.ATInt (Idris.ITFixed Idris.IT8))   -> undefined
+  LMinus  (Idris.ATInt (Idris.ITFixed Idris.IT16))  -> undefined
+  LMinus  (Idris.ATInt (Idris.ITFixed Idris.IT32))  -> undefined
+  LMinus  (Idris.ATInt (Idris.ITFixed Idris.IT64))  -> undefined
+  LMinus  Idris.ATFloat                             -> Grin.SApp "idris_float_sub" ps
+
+  LTimes  (Idris.ATInt (Idris.ITChar))              -> Grin.SApp "idris_int_mul" ps
+  LTimes  (Idris.ATInt (Idris.ITBig))               -> Grin.SApp "idris_int_mul" ps
+  LTimes  (Idris.ATInt (Idris.ITNative))            -> Grin.SApp "idris_int_mul" ps
+  LTimes  (Idris.ATInt (Idris.ITFixed Idris.IT8))   -> undefined
+  LTimes  (Idris.ATInt (Idris.ITFixed Idris.IT16))  -> undefined
+  LTimes  (Idris.ATInt (Idris.ITFixed Idris.IT32))  -> undefined
   LTimes  (Idris.ATInt (Idris.ITFixed Idris.IT64))  -> Grin.SApp "idris_bit64_mul" ps
-  LTimes  (Idris.ATInt intTy)                       -> Grin.SApp "idris_int_mul" ps
-  LTimes  Idris.ATFloat       -> Grin.SApp "idris_float_mul" ps
-  LSDiv   (Idris.ATInt intTy) -> Grin.SApp "idris_int_div" ps
-  LSDiv   Idris.ATFloat       -> Grin.SApp "idris_float_div" ps
-  LUDiv   (Idris.ITFixed Idris.IT8) -> Grin.SApp "idris_bit8_udiv" ps
-  LUDiv   (Idris.ITFixed Idris.IT16) -> Grin.SApp "idris_bit16_udiv" ps
-  LUDiv   (Idris.ITFixed Idris.IT32) -> Grin.SApp "idris_bit32_udiv" ps
-  LUDiv   (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_udiv" ps
-  LUDiv   intTy               -> Grin.SApp "idris_int_udiv" ps
-  LURem   (Idris.ITFixed Idris.IT8) -> Grin.SApp "idris_bit8_urem" ps
-  LURem   (Idris.ITFixed Idris.IT16) -> Grin.SApp "idris_bit16_urem" ps
-  LURem   (Idris.ITFixed Idris.IT32) -> Grin.SApp "idris_bit32_urem" ps
-  LURem   (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_urem" ps
-  LURem   intTy               -> Grin.SApp "idris_int_urem" ps
-  LSRem   (Idris.ATInt intTy) -> Grin.SApp "idris_int_rem" ps
-{-
-  LSRem   arithTy -> undefined
--}
-  LAnd (Idris.ITFixed Idris.IT8)  -> Grin.SApp "idris_bit8_and" ps
-  LAnd (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_and" ps
-  LAnd intTy -> Grin.SApp "idris_int_and" ps
-{-
-  LOr intTy -> undefined
-  LXOr intTy -> undefined
-  LCompl intTy -> undefined
--}
-  LSHL (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_shl" ps
-  LSHL  intTy -> Grin.SApp "idris_int_shl" ps
+  LTimes  Idris.ATFloat                             -> Grin.SApp "idris_float_mul" ps
 
-  LLSHR (Idris.ITFixed Idris.IT8) -> Grin.SApp "idris_bit8_lshr" ps
-  LLSHR (Idris.ITFixed Idris.IT16) -> Grin.SApp "idris_bit16_lshr" ps
-  LLSHR (Idris.ITFixed Idris.IT32) -> Grin.SApp "idris_bit32_lshr" ps
-  LLSHR (Idris.ITFixed Idris.IT64) -> Grin.SApp "idris_bit64_lshr" ps
-  LLSHR intTy -> Grin.SApp "idris_int_lshr" ps
+  LSDiv  (Idris.ATInt (Idris.ITChar))               -> Grin.SApp "idris_int_div" ps
+  LSDiv  (Idris.ATInt (Idris.ITBig))                -> Grin.SApp "idris_int_div" ps
+  LSDiv  (Idris.ATInt (Idris.ITNative))             -> Grin.SApp "idris_int_div" ps
+  LSDiv  (Idris.ATInt (Idris.ITFixed Idris.IT8))    -> undefined
+  LSDiv  (Idris.ATInt (Idris.ITFixed Idris.IT16))   -> undefined
+  LSDiv  (Idris.ATInt (Idris.ITFixed Idris.IT32))   -> undefined
+  LSDiv  (Idris.ATInt (Idris.ITFixed Idris.IT64))   -> undefined
+  LSDiv  Idris.ATFloat                              -> Grin.SApp "idris_float_div" ps
 
-  LASHR Idris.ITNative    -> Grin.SApp "idris_lashr_int" ps
-  LEq (Idris.ATInt Idris.ITBig) -> Grin.SApp "idris_int_eq" ps
-  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT8))) -> Grin.SApp "idris_bit8_eq" ps
-  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT16))) -> Grin.SApp "idris_bit16_eq" ps
-  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT32))) -> Grin.SApp "idris_bit32_eq" ps
-  LEq (Idris.ATInt (Idris.ITFixed (Idris.IT64))) -> Grin.SApp "idris_bit64_eq" ps
-  LEq (Idris.ATInt intTy) -> Grin.SApp "idris_int_eq" ps
-  LEq Idris.ATFloat       -> Grin.SApp "idris_float_eq" ps
+  LUDiv (Idris.ITChar)                              -> Grin.SApp "idris_int_udiv" ps
+  LUDiv (Idris.ITBig)                               -> Grin.SApp "idris_int_udiv" ps
+  LUDiv (Idris.ITNative)                            -> Grin.SApp "idris_int_udiv" ps
+  LUDiv (Idris.ITFixed Idris.IT8)                   -> Grin.SApp "idris_bit8_udiv" ps
+  LUDiv (Idris.ITFixed Idris.IT16)                  -> Grin.SApp "idris_bit16_udiv" ps
+  LUDiv (Idris.ITFixed Idris.IT32)                  -> Grin.SApp "idris_bit32_udiv" ps
+  LUDiv (Idris.ITFixed Idris.IT64)                  -> Grin.SApp "idris_bit64_udiv" ps
 
-  LSLt (Idris.ATInt intTy) -> Grin.SApp "idris_int_lt" ps
-  LSLt Idris.ATFloat       -> Grin.SApp "idris_float_lt" ps
+  LURem (Idris.ITChar)                              -> Grin.SApp "idris_int_urem" ps
+  LURem (Idris.ITBig)                               -> Grin.SApp "idris_int_urem" ps
+  LURem (Idris.ITNative)                            -> Grin.SApp "idris_int_urem" ps
+  LURem (Idris.ITFixed Idris.IT8)                   -> Grin.SApp "idris_bit8_urem" ps
+  LURem (Idris.ITFixed Idris.IT16)                  -> Grin.SApp "idris_bit16_urem" ps
+  LURem (Idris.ITFixed Idris.IT32)                  -> Grin.SApp "idris_bit32_urem" ps
+  LURem (Idris.ITFixed Idris.IT64)                  -> Grin.SApp "idris_bit64_urem" ps
 
-  LSLe (Idris.ATInt intTy) -> Grin.SApp "idris_int_le" ps
-  LSGt (Idris.ATInt intTy) -> Grin.SApp "idris_int_gt" ps
-  LSGe (Idris.ATInt intTy) -> Grin.SApp "idris_int_ge" ps
-{-
-  LLt intTy -> Grin.SApp "_prim_int_lt" ps
-  LLe intTy -> Grin.SApp "_prim_int_le" ps
-  LGt intTy -> Grin.SApp "_prim_int_gt" ps
-  LGe intTy -> Grin.SApp "_prim_int_ge" ps
-  --LSLt Idris.ATFloat       -> Grin.SApp "_prim_float_lt" ps
--}
-  LSExt intTy1 intTy2 -> Grin.SApp "idris_ls_ext" ps
-  LZExt Idris.ITNative (Idris.ITFixed Idris.IT64)
-    -> Grin.SApp "idris_lz_ext_int_bit64" ps
-  LZExt (Idris.ITFixed Idris.IT8) Idris.ITNative
-    -> Grin.SApp "idris_lz_ext_bit8_int" ps
-  LZExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT64)
-    -> Grin.SApp "idris_lz_ext_bit8_bit64" ps
-  LZExt intTy1 intTy2 -> Grin.SApp "idris_lz_ext" ps
+  LSRem (Idris.ATInt (Idris.ITChar))                -> Grin.SApp "idris_int_rem" ps
+  LSRem (Idris.ATInt (Idris.ITBig))                 -> Grin.SApp "idris_int_rem" ps
+  LSRem (Idris.ATInt (Idris.ITNative))              -> Grin.SApp "idris_int_rem" ps
+  LSRem (Idris.ATInt (Idris.ITFixed Idris.IT8))     -> undefined
+  LSRem (Idris.ATInt (Idris.ITFixed Idris.IT16))    -> undefined
+  LSRem (Idris.ATInt (Idris.ITFixed Idris.IT32))    -> undefined
+  LSRem (Idris.ATInt (Idris.ITFixed Idris.IT64))    -> undefined
+  LSRem Idris.ATFloat                               -> undefined
 
-  LTrunc Idris.ITBig (Idris.ITFixed Idris.IT64)
-    -> Grin.SApp "idris_ltrunc_big_bit64" ps
-  LTrunc (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT8)
-    -> Grin.SApp "idris_ltrunc_bit16_bit8" ps
-  LTrunc (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT8)
-    -> Grin.SApp "idris_ltrunc_bit32_bit8" ps
-  LTrunc (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT8)
-    -> Grin.SApp "idris_ltrunc_bit64_bit8" ps
-  LTrunc Idris.ITBig Idris.ITNative
-    -> Grin.SApp "idris_ltrunc_big_int" ps
-  LTrunc Idris.ITNative (Idris.ITFixed Idris.IT8)
-    -> Grin.SApp "idris_ltrunc_int_bit8" ps
+  LAnd (Idris.ITChar)                               -> Grin.SApp "idris_int_and" ps
+  LAnd (Idris.ITBig)                                -> Grin.SApp "idris_int_and" ps
+  LAnd (Idris.ITNative)                             -> Grin.SApp "idris_int_and" ps
+  LAnd (Idris.ITFixed Idris.IT8)                    -> Grin.SApp "idris_bit8_and" ps
+  LAnd (Idris.ITFixed Idris.IT16)                   -> undefined
+  LAnd (Idris.ITFixed Idris.IT32)                   -> undefined
+  LAnd (Idris.ITFixed Idris.IT64)                   -> Grin.SApp "idris_bit64_and" ps
 
-  LStrConcat -> Grin.SApp "idris_str_concat" ps
-  LStrLt -> Grin.SApp "idris_str_lt" ps
-  LStrEq -> Grin.SApp "idris_str_eq" ps
-  LStrLen -> Grin.SApp "idris_str_len" ps
-  LIntFloat intTy -> Grin.SApp "idris_int_float" ps
-  LFloatInt intTy -> Grin.SApp "idris_float_int" ps
-  LIntStr intTy -> Grin.SApp "idris_int_str"    ps
-  LStrInt intTy -> Grin.SApp "idris_str_int"    ps
+  LOr (Idris.ITChar)                                -> undefined
+  LOr (Idris.ITBig)                                 -> undefined
+  LOr (Idris.ITNative)                              -> undefined
+  LOr (Idris.ITFixed Idris.IT8)                     -> undefined
+  LOr (Idris.ITFixed Idris.IT16)                    -> undefined
+  LOr (Idris.ITFixed Idris.IT32)                    -> undefined
+  LOr (Idris.ITFixed Idris.IT64)                    -> undefined
+
+  LXOr (Idris.ITChar)                               -> undefined
+  LXOr (Idris.ITBig)                                -> undefined
+  LXOr (Idris.ITNative)                             -> undefined
+  LXOr (Idris.ITFixed Idris.IT8)                    -> undefined
+  LXOr (Idris.ITFixed Idris.IT16)                   -> undefined
+  LXOr (Idris.ITFixed Idris.IT32)                   -> undefined
+  LXOr (Idris.ITFixed Idris.IT64)                   -> undefined
+
+  LCompl (Idris.ITChar)                             -> undefined
+  LCompl (Idris.ITBig)                              -> undefined
+  LCompl (Idris.ITNative)                           -> undefined
+  LCompl (Idris.ITFixed Idris.IT8)                  -> undefined
+  LCompl (Idris.ITFixed Idris.IT16)                 -> undefined
+  LCompl (Idris.ITFixed Idris.IT32)                 -> undefined
+  LCompl (Idris.ITFixed Idris.IT64)                 -> undefined
+
+  LSHL (Idris.ITChar)                           -> Grin.SApp "idris_int_shl" ps
+  LSHL (Idris.ITBig)                            -> Grin.SApp "idris_int_shl" ps
+  LSHL (Idris.ITNative)                         -> Grin.SApp "idris_int_shl" ps
+  LSHL (Idris.ITFixed Idris.IT8)                -> undefined
+  LSHL (Idris.ITFixed Idris.IT16)               -> undefined
+  LSHL (Idris.ITFixed Idris.IT32)               -> undefined
+  LSHL (Idris.ITFixed Idris.IT64)               -> Grin.SApp "idris_bit64_shl" ps
+
+  LLSHR (Idris.ITChar)                          -> Grin.SApp "idris_int_lshr" ps
+  LLSHR (Idris.ITBig)                           -> Grin.SApp "idris_int_lshr" ps
+  LLSHR (Idris.ITNative)                        -> Grin.SApp "idris_int_lshr" ps
+  LLSHR (Idris.ITFixed Idris.IT8)               -> Grin.SApp "idris_bit8_lshr" ps
+  LLSHR (Idris.ITFixed Idris.IT16)              -> Grin.SApp "idris_bit16_lshr" ps
+  LLSHR (Idris.ITFixed Idris.IT32)              -> Grin.SApp "idris_bit32_lshr" ps
+  LLSHR (Idris.ITFixed Idris.IT64)              -> Grin.SApp "idris_bit64_lshr" ps
+
+  LASHR Idris.ITChar                            -> Grin.SApp "idris_lashr_int" ps
+  LASHR Idris.ITBig                             -> Grin.SApp "idris_lashr_int" ps
+  LASHR Idris.ITNative                          -> Grin.SApp "idris_lashr_int" ps
+  LASHR (Idris.ITFixed Idris.IT8)               -> undefined
+  LASHR (Idris.ITFixed Idris.IT16)              -> undefined
+  LASHR (Idris.ITFixed Idris.IT32)              -> undefined
+  LASHR (Idris.ITFixed Idris.IT64)              -> undefined
+
+  LEq (Idris.ATInt Idris.ITChar)                -> Grin.SApp "idris_int_eq" ps
+  LEq (Idris.ATInt Idris.ITBig)                 -> Grin.SApp "idris_int_eq" ps
+  LEq (Idris.ATInt Idris.ITNative)              -> Grin.SApp "idris_int_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed Idris.IT8))   -> Grin.SApp "idris_bit8_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed Idris.IT16))  -> Grin.SApp "idris_bit16_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed Idris.IT32))  -> Grin.SApp "idris_bit32_eq" ps
+  LEq (Idris.ATInt (Idris.ITFixed Idris.IT64))  -> Grin.SApp "idris_bit64_eq" ps
+  LEq Idris.ATFloat                             -> Grin.SApp "idris_float_eq" ps
+
+  LSLt (Idris.ATInt Idris.ITChar)               -> Grin.SApp "idris_int_lt" ps
+  LSLt (Idris.ATInt Idris.ITBig)                -> Grin.SApp "idris_int_lt" ps
+  LSLt (Idris.ATInt Idris.ITNative)             -> Grin.SApp "idris_int_lt" ps
+  LSLt (Idris.ATInt (Idris.ITFixed Idris.IT8))  -> undefined
+  LSLt (Idris.ATInt (Idris.ITFixed Idris.IT16)) -> undefined
+  LSLt (Idris.ATInt (Idris.ITFixed Idris.IT32)) -> undefined
+  LSLt (Idris.ATInt (Idris.ITFixed Idris.IT64)) -> undefined
+  LSLt Idris.ATFloat                            -> Grin.SApp "idris_float_lt" ps
+
+  LSLe (Idris.ATInt Idris.ITChar)               -> Grin.SApp "idris_int_le" ps
+  LSLe (Idris.ATInt Idris.ITBig)                -> Grin.SApp "idris_int_le" ps
+  LSLe (Idris.ATInt Idris.ITNative)             -> Grin.SApp "idris_int_le" ps
+  LSLe (Idris.ATInt (Idris.ITFixed Idris.IT8))  -> undefined
+  LSLe (Idris.ATInt (Idris.ITFixed Idris.IT16)) -> undefined
+  LSLe (Idris.ATInt (Idris.ITFixed Idris.IT32)) -> undefined
+  LSLe (Idris.ATInt (Idris.ITFixed Idris.IT64)) -> undefined
+  LSLe Idris.ATFloat                            -> undefined
+
+  LSGt (Idris.ATInt Idris.ITChar)               -> Grin.SApp "idris_int_gt" ps
+  LSGt (Idris.ATInt Idris.ITBig)                -> Grin.SApp "idris_int_gt" ps
+  LSGt (Idris.ATInt Idris.ITNative)             -> Grin.SApp "idris_int_gt" ps
+  LSGt (Idris.ATInt (Idris.ITFixed Idris.IT8))  -> undefined
+  LSGt (Idris.ATInt (Idris.ITFixed Idris.IT16)) -> undefined
+  LSGt (Idris.ATInt (Idris.ITFixed Idris.IT32)) -> undefined
+  LSGt (Idris.ATInt (Idris.ITFixed Idris.IT64)) -> undefined
+  LSGt Idris.ATFloat                            -> undefined
+
+  LSGe (Idris.ATInt Idris.ITChar)               -> Grin.SApp "idris_int_ge" ps
+  LSGe (Idris.ATInt Idris.ITBig)                -> Grin.SApp "idris_int_ge" ps
+  LSGe (Idris.ATInt Idris.ITNative)             -> Grin.SApp "idris_int_ge" ps
+  LSGe (Idris.ATInt (Idris.ITFixed Idris.IT8))  -> undefined
+  LSGe (Idris.ATInt (Idris.ITFixed Idris.IT16)) -> undefined
+  LSGe (Idris.ATInt (Idris.ITFixed Idris.IT32)) -> undefined
+  LSGe (Idris.ATInt (Idris.ITFixed Idris.IT64)) -> undefined
+  LSGe Idris.ATFloat                            -> undefined
+
+  LLt Idris.ITChar                              -> Grin.SApp "_prim_int_lt" ps
+  LLt Idris.ITBig                               -> Grin.SApp "_prim_int_lt" ps
+  LLt Idris.ITNative                            -> Grin.SApp "_prim_int_lt" ps
+  LLt (Idris.ITFixed Idris.IT8)                 -> undefined
+  LLt (Idris.ITFixed Idris.IT16)                -> undefined
+  LLt (Idris.ITFixed Idris.IT32)                -> undefined
+  LLt (Idris.ITFixed Idris.IT64)                -> undefined
+
+  LLe Idris.ITChar                              -> Grin.SApp "_prim_int_le" ps
+  LLe Idris.ITBig                               -> Grin.SApp "_prim_int_le" ps
+  LLe Idris.ITNative                            -> Grin.SApp "_prim_int_le" ps
+  LLe (Idris.ITFixed Idris.IT8)                 -> undefined
+  LLe (Idris.ITFixed Idris.IT16)                -> undefined
+  LLe (Idris.ITFixed Idris.IT32)                -> undefined
+  LLe (Idris.ITFixed Idris.IT64)                -> undefined
+
+  LGt Idris.ITChar                              -> Grin.SApp "_prim_int_gt" ps
+  LGt Idris.ITBig                               -> Grin.SApp "_prim_int_gt" ps
+  LGt Idris.ITNative                            -> Grin.SApp "_prim_int_gt" ps
+  LGt (Idris.ITFixed Idris.IT8)                 -> undefined
+  LGt (Idris.ITFixed Idris.IT16)                -> undefined
+  LGt (Idris.ITFixed Idris.IT32)                -> undefined
+  LGt (Idris.ITFixed Idris.IT64)                -> undefined
+
+  LGe Idris.ITChar                              -> Grin.SApp "_prim_int_ge" ps
+  LGe Idris.ITBig                               -> Grin.SApp "_prim_int_ge" ps
+  LGe Idris.ITNative                            -> Grin.SApp "_prim_int_ge" ps
+  LGe (Idris.ITFixed Idris.IT8)                 -> undefined
+  LGe (Idris.ITFixed Idris.IT16)                -> undefined
+  LGe (Idris.ITFixed Idris.IT32)                -> undefined
+  LGe (Idris.ITFixed Idris.IT64)                -> undefined
+
+  LSExt Idris.ITChar Idris.ITChar                           -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITChar Idris.ITBig                            -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITChar Idris.ITNative                         -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITChar (Idris.ITFixed Idris.IT8)              -> undefined
+  LSExt Idris.ITChar (Idris.ITFixed Idris.IT16)             -> undefined
+  LSExt Idris.ITChar (Idris.ITFixed Idris.IT32)             -> undefined
+  LSExt Idris.ITChar (Idris.ITFixed Idris.IT64)             -> undefined
+
+  LSExt Idris.ITBig Idris.ITChar                            -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITBig Idris.ITBig                             -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITBig Idris.ITNative                          -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITBig (Idris.ITFixed Idris.IT8)               -> undefined
+  LSExt Idris.ITBig (Idris.ITFixed Idris.IT16)              -> undefined
+  LSExt Idris.ITBig (Idris.ITFixed Idris.IT32)              -> undefined
+  LSExt Idris.ITBig (Idris.ITFixed Idris.IT64)              -> undefined
+
+  LSExt Idris.ITNative Idris.ITChar                           -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITNative Idris.ITBig                            -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITNative Idris.ITNative                         -> Grin.SApp "idris_ls_ext" ps
+  LSExt Idris.ITNative (Idris.ITFixed Idris.IT8)              -> undefined
+  LSExt Idris.ITNative (Idris.ITFixed Idris.IT16)             -> undefined
+  LSExt Idris.ITNative (Idris.ITFixed Idris.IT32)             -> undefined
+  LSExt Idris.ITNative (Idris.ITFixed Idris.IT64)             -> Grin.SApp "idris_lz_ext_int_bit64" ps
+
+  LSExt (Idris.ITFixed Idris.IT8) Idris.ITChar                -> Grin.SApp "idris_lz_ext_bit8_int" ps
+  LSExt (Idris.ITFixed Idris.IT8) Idris.ITBig                 -> Grin.SApp "idris_lz_ext_bit8_int" ps
+  LSExt (Idris.ITFixed Idris.IT8) Idris.ITNative              -> Grin.SApp "idris_lz_ext_bit8_int" ps
+  LSExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT8)   -> undefined
+  LSExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT16)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT32)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT64)  -> Grin.SApp "idris_lz_ext_bit8_bit64" ps
+
+  LSExt (Idris.ITFixed Idris.IT16) Idris.ITChar                -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT16) Idris.ITBig                 -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT16) Idris.ITNative              -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT8)   -> undefined
+  LSExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT16)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT32)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LSExt (Idris.ITFixed Idris.IT32) Idris.ITChar                -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT32) Idris.ITBig                 -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT32) Idris.ITNative              -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT8)   -> undefined
+  LSExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT16)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT32)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LSExt (Idris.ITFixed Idris.IT64) Idris.ITChar                -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT64) Idris.ITBig                 -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT64) Idris.ITNative              -> Grin.SApp "idris_ls_ext" ps
+  LSExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT8)   -> undefined
+  LSExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT16)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT32)  -> undefined
+  LSExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LZExt Idris.ITChar Idris.ITChar                           -> undefined
+  LZExt Idris.ITChar Idris.ITBig                            -> undefined
+  LZExt Idris.ITChar Idris.ITNative                         -> undefined
+  LZExt Idris.ITChar (Idris.ITFixed Idris.IT8)              -> undefined
+  LZExt Idris.ITChar (Idris.ITFixed Idris.IT16)             -> undefined
+  LZExt Idris.ITChar (Idris.ITFixed Idris.IT32)             -> undefined
+  LZExt Idris.ITChar (Idris.ITFixed Idris.IT64)             -> undefined
+
+  LZExt Idris.ITBig Idris.ITChar                            -> undefined
+  LZExt Idris.ITBig Idris.ITBig                             -> undefined
+  LZExt Idris.ITBig Idris.ITNative                          -> undefined
+  LZExt Idris.ITBig (Idris.ITFixed Idris.IT8)               -> undefined
+  LZExt Idris.ITBig (Idris.ITFixed Idris.IT16)              -> undefined
+  LZExt Idris.ITBig (Idris.ITFixed Idris.IT32)              -> undefined
+  LZExt Idris.ITBig (Idris.ITFixed Idris.IT64)              -> undefined
+
+  LZExt Idris.ITNative Idris.ITChar                           -> undefined
+  LZExt Idris.ITNative Idris.ITBig                            -> Grin.SApp "idris_lz_ext_int_bigint" ps
+  LZExt Idris.ITNative Idris.ITNative                         -> undefined
+  LZExt Idris.ITNative (Idris.ITFixed Idris.IT8)              -> undefined
+  LZExt Idris.ITNative (Idris.ITFixed Idris.IT16)             -> undefined
+  LZExt Idris.ITNative (Idris.ITFixed Idris.IT32)             -> undefined
+  LZExt Idris.ITNative (Idris.ITFixed Idris.IT64)             -> Grin.SApp "idris_lz_ext_int_bit64" ps
+
+  LZExt (Idris.ITFixed Idris.IT8) Idris.ITChar                -> Grin.SApp "idris_lz_ext_bit8_int" ps
+  LZExt (Idris.ITFixed Idris.IT8) Idris.ITBig                 -> Grin.SApp "idris_lz_ext_bit8_int" ps
+  LZExt (Idris.ITFixed Idris.IT8) Idris.ITNative              -> Grin.SApp "idris_lz_ext_bit8_int" ps
+  LZExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT8)   -> undefined
+  LZExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT16)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT32)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT64)  -> Grin.SApp "idris_lz_ext_bit8_bit64" ps
+
+  LZExt (Idris.ITFixed Idris.IT16) Idris.ITChar                -> undefined
+  LZExt (Idris.ITFixed Idris.IT16) Idris.ITBig                 -> undefined
+  LZExt (Idris.ITFixed Idris.IT16) Idris.ITNative              -> undefined
+  LZExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT8)   -> undefined
+  LZExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT16)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT32)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LZExt (Idris.ITFixed Idris.IT32) Idris.ITChar                -> undefined
+  LZExt (Idris.ITFixed Idris.IT32) Idris.ITBig                 -> undefined
+  LZExt (Idris.ITFixed Idris.IT32) Idris.ITNative              -> undefined
+  LZExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT8)   -> undefined
+  LZExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT16)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT32)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LZExt (Idris.ITFixed Idris.IT64) Idris.ITChar                -> undefined
+  LZExt (Idris.ITFixed Idris.IT64) Idris.ITBig                 -> undefined
+  LZExt (Idris.ITFixed Idris.IT64) Idris.ITNative              -> undefined
+  LZExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT8)   -> undefined
+  LZExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT16)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT32)  -> undefined
+  LZExt (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LTrunc Idris.ITChar Idris.ITChar                              -> undefined
+  LTrunc Idris.ITChar Idris.ITBig                               -> undefined
+  LTrunc Idris.ITChar Idris.ITNative                            -> undefined
+  LTrunc Idris.ITChar (Idris.ITFixed Idris.IT8)                 -> undefined
+  LTrunc Idris.ITChar (Idris.ITFixed Idris.IT16)                -> undefined
+  LTrunc Idris.ITChar (Idris.ITFixed Idris.IT32)                -> undefined
+  LTrunc Idris.ITChar (Idris.ITFixed Idris.IT64)                -> undefined
+
+  LTrunc Idris.ITBig Idris.ITChar                               -> undefined
+  LTrunc Idris.ITBig Idris.ITBig                                -> undefined
+  LTrunc Idris.ITBig Idris.ITNative                             -> Grin.SApp "idris_ltrunc_big_int" ps
+  LTrunc Idris.ITBig (Idris.ITFixed Idris.IT8)                  -> undefined
+  LTrunc Idris.ITBig (Idris.ITFixed Idris.IT16)                 -> undefined
+  LTrunc Idris.ITBig (Idris.ITFixed Idris.IT32)                 -> undefined
+  LTrunc Idris.ITBig (Idris.ITFixed Idris.IT64)                 -> Grin.SApp "idris_ltrunc_big_bit64" ps
+
+  LTrunc Idris.ITNative Idris.ITChar                            -> undefined
+  LTrunc Idris.ITNative Idris.ITBig                             -> undefined
+  LTrunc Idris.ITNative Idris.ITNative                          -> undefined
+  LTrunc Idris.ITNative (Idris.ITFixed Idris.IT8)               -> Grin.SApp "idris_ltrunc_int_bit8" ps
+  LTrunc Idris.ITNative (Idris.ITFixed Idris.IT16)              -> undefined
+  LTrunc Idris.ITNative (Idris.ITFixed Idris.IT32)              -> undefined
+  LTrunc Idris.ITNative (Idris.ITFixed Idris.IT64)              -> undefined
+
+  LTrunc (Idris.ITFixed Idris.IT8) Idris.ITChar                 -> undefined
+  LTrunc (Idris.ITFixed Idris.IT8) Idris.ITBig                  -> undefined
+  LTrunc (Idris.ITFixed Idris.IT8) Idris.ITNative               -> undefined
+  LTrunc (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT8)    -> undefined
+  LTrunc (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT16)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT32)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT8) (Idris.ITFixed Idris.IT64)   -> undefined
+
+  LTrunc (Idris.ITFixed Idris.IT16) Idris.ITChar                 -> undefined
+  LTrunc (Idris.ITFixed Idris.IT16) Idris.ITBig                  -> undefined
+  LTrunc (Idris.ITFixed Idris.IT16) Idris.ITNative               -> undefined
+  LTrunc (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT8)    -> Grin.SApp "idris_ltrunc_bit16_bit8" ps
+  LTrunc (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT16)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT32)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT16) (Idris.ITFixed Idris.IT64)   -> undefined
+
+  LTrunc (Idris.ITFixed Idris.IT32) Idris.ITChar                 -> undefined
+  LTrunc (Idris.ITFixed Idris.IT32) Idris.ITBig                  -> undefined
+  LTrunc (Idris.ITFixed Idris.IT32) Idris.ITNative               -> undefined
+  LTrunc (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT8)    -> Grin.SApp "idris_ltrunc_bit32_bit8" ps
+  LTrunc (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT16)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT32)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT32) (Idris.ITFixed Idris.IT64)   -> undefined
+
+  LTrunc (Idris.ITFixed Idris.IT64) Idris.ITChar                 -> undefined
+  LTrunc (Idris.ITFixed Idris.IT64) Idris.ITBig                  -> undefined
+  LTrunc (Idris.ITFixed Idris.IT64) Idris.ITNative               -> undefined
+  LTrunc (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT8)    -> Grin.SApp "idris_ltrunc_bit64_bit8" ps
+  LTrunc (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT16)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT32)   -> undefined
+  LTrunc (Idris.ITFixed Idris.IT64) (Idris.ITFixed Idris.IT64)   -> undefined
+
+  LStrConcat                                                      -> Grin.SApp "idris_str_concat" ps
+  LStrLt                                                          -> Grin.SApp "idris_str_lt" ps
+  LStrEq                                                          -> Grin.SApp "idris_str_eq" ps
+  LStrLen                                                         -> Grin.SApp "idris_str_len" ps
+
+  LIntFloat Idris.ITChar                -> Grin.SApp "idris_int_float" ps
+  LIntFloat Idris.ITBig                 -> Grin.SApp "idris_int_float" ps
+  LIntFloat Idris.ITNative              -> Grin.SApp "idris_int_float" ps
+  LIntFloat (Idris.ITFixed Idris.IT8)   -> undefined
+  LIntFloat (Idris.ITFixed Idris.IT16)  -> undefined
+  LIntFloat (Idris.ITFixed Idris.IT32)  -> undefined
+  LIntFloat (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LFloatInt Idris.ITChar                -> Grin.SApp "idris_float_int" ps
+  LFloatInt Idris.ITBig                 -> Grin.SApp "idris_float_int" ps
+  LFloatInt Idris.ITNative              -> Grin.SApp "idris_float_int" ps
+  LFloatInt (Idris.ITFixed Idris.IT8)   -> undefined
+  LFloatInt (Idris.ITFixed Idris.IT16)  -> undefined
+  LFloatInt (Idris.ITFixed Idris.IT32)  -> undefined
+  LFloatInt (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LIntStr Idris.ITChar                -> Grin.SApp "idris_int_str"    ps
+  LIntStr Idris.ITBig                 -> Grin.SApp "idris_int_str"    ps
+  LIntStr Idris.ITNative              -> Grin.SApp "idris_int_str"    ps
+  LIntStr (Idris.ITFixed Idris.IT8)   -> undefined
+  LIntStr (Idris.ITFixed Idris.IT16)  -> undefined
+  LIntStr (Idris.ITFixed Idris.IT32)  -> undefined
+  LIntStr (Idris.ITFixed Idris.IT64)  -> undefined
+
+  LStrInt Idris.ITChar                -> Grin.SApp "idris_str_int"    ps
+  LStrInt Idris.ITBig                 -> Grin.SApp "idris_str_int"    ps
+  LStrInt Idris.ITNative              -> Grin.SApp "idris_str_int"    ps
+  LStrInt (Idris.ITFixed Idris.IT8)   -> undefined
+  LStrInt (Idris.ITFixed Idris.IT16)  -> undefined
+  LStrInt (Idris.ITFixed Idris.IT32)  -> undefined
+  LStrInt (Idris.ITFixed Idris.IT64)  -> undefined
+
   LFloatStr     -> Grin.SApp "idris_float_str"  ps
   LStrFloat     -> Grin.SApp "idris_str_float"  ps
-  LChInt intTy  -> Grin.SApp "idris_ch_int"     ps
-  LIntCh intTy  -> Grin.SApp "idris_int_ch"     ps
-{-
+
+  LChInt Idris.ITChar                 -> Grin.SApp "idris_ch_int"     ps
+  LChInt Idris.ITBig                  -> Grin.SApp "idris_ch_int"     ps
+  LChInt Idris.ITNative               -> Grin.SApp "idris_ch_int"     ps
+  LChInt (Idris.ITFixed Idris.IT8)    -> undefined
+  LChInt (Idris.ITFixed Idris.IT16)   -> undefined
+  LChInt (Idris.ITFixed Idris.IT32)   -> undefined
+  LChInt (Idris.ITFixed Idris.IT64)   -> undefined
+
+  LIntCh Idris.ITChar                 -> Grin.SApp "idris_int_ch"     ps
+  LIntCh Idris.ITBig                  -> Grin.SApp "idris_int_ch"     ps
+  LIntCh Idris.ITNative               -> Grin.SApp "idris_int_ch"     ps
+  LIntCh (Idris.ITFixed Idris.IT8)    -> undefined
+  LIntCh (Idris.ITFixed Idris.IT16)   -> undefined
+  LIntCh (Idris.ITFixed Idris.IT32)   -> undefined
+  LIntCh (Idris.ITFixed Idris.IT64)   -> undefined
+
   LBitCast arithTy1 arithTy2 -> undefined -- Only for values of equal width
+
   LFExp -> undefined
   LFLog -> undefined
   LFSin -> undefined
@@ -466,16 +792,12 @@ primFn f ps = case f of
   LFASin -> undefined
   LFACos -> undefined
   LFATan -> undefined
--}
   LFATan2 -> Grin.SApp "idris_float_atan2" ps
-{-
   LFSqrt -> undefined
--}
   LFFloor -> Grin.SApp "idris_float_floor" ps
   LFCeil  -> Grin.SApp "idris_float_ceil"  ps
-{-
   LFNegate -> undefined
--}
+
   LStrHead  -> Grin.SApp "idris_str_head" ps
   LStrTail  -> Grin.SApp "idris_str_tail" ps
   LStrCons  -> Grin.SApp "idris_str_cons" ps
@@ -486,18 +808,11 @@ primFn f ps = case f of
   LWriteStr -> Grin.SApp "idris_write_str" ps
 
   LExternal name -> Grin.SApp (packName $ show name) ps
-  {-
   LSystemInfo -> undefined
-  -}
   LFork -> Grin.SApp "idris_fork" ps
-  {-
   LPar -> undefined -- evaluate argument anywhere, possibly on another -- core or another machine. 'id' is a valid implementation
-  -}
   LCrash -> Grin.SApp "idris_crash" ps
-  {-
   LNoOp -> undefined
-  -}
-  x -> error $ printf "unsupported primitive operation %s" (show x)
 
 -- TODO: Check if the Val is reffered and fetched
 val :: Name -> SExp -> Val

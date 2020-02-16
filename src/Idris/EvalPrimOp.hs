@@ -209,6 +209,8 @@ evalPrimOp execuableName (EvalReferences bufferRef handleRef mallocRef vmRef) na
   -- Bool
   "_prim_bool_eq"   -> bool_bin_op bool (==)
   "_prim_bool_ne"   -> bool_bin_op bool (/=)
+  -- Cast
+  "_prim_int_bigint" -> castIntBigInt
 
   _ -> error $ "unknown primitive operation: " ++ unpackName name
  where
@@ -776,6 +778,10 @@ evalPrimOp execuableName (EvalReferences bufferRef handleRef mallocRef vmRef) na
     [RT_Lit (LInt64 i)] -> do
       args <- (execuableName:) <$> getArgs
       pure $ RT_Lit $ LString $ fromString $ args !! (fromIntegral i)
+    _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
+
+  castIntBigInt = case args of
+    [RT_Lit (LInt64 i)] -> pure $ RT_Lit (LInt64 i)
     _ -> error $ "invalid arguments:" ++ show params ++ " " ++ show args ++ " for " ++ unpackName name
 
   boolean f t x = if x then t else f
