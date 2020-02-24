@@ -1,0 +1,4 @@
+package Main
+
+modules = Main
+opts = "-p contrib"

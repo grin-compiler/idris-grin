@@ -9,6 +9,7 @@
 module Main
 
 import Data.SortedMap
+import Data.SortedSet
 import Control.Monad.State
 import Prelude.Traversable
 import Text.PrettyPrint.WL
@@ -16,10 +17,21 @@ import Text.PrettyPrint.WL
 interface Pretty p where
   doc : p -> Doc
 
+(Pretty p1, Pretty p2) => Pretty (Pair p1 p2) where
+  doc (p1, p2) = brackets (doc p1 |++| text "," |++| doc p2)
+
+Pretty p => Pretty (List p) where
+  doc ps = vsep (map doc ps)
+
+Pretty Nat where
+  doc = text . show
+
 -- Arity
 data Arity = MkArity Nat
 Eq Arity where
   (MkArity a1) == (MkArity a2) = a1 == a2
+Show Arity where
+  show (MkArity a) = show a
 Pretty Arity where
   doc (MkArity a) = text $ show a
 
@@ -27,15 +39,30 @@ Pretty Arity where
 data Var = MkVar String
 Eq Var where
   (MkVar v1) == (MkVar v2) = v1 == v2
+Ord Var where
+  compare (MkVar v1) (MkVar v2) = compare v1 v2
 Pretty Var where
   doc (MkVar v) = text v
 
 --  Constructor
-data Cnst  = MkCnst String
+data Cnst
+  = MkCnst String
+  | PCnst String
 Eq Cnst where
   (MkCnst v1) == (MkCnst v2) = v1 == v2
+  (PCnst c1) == (PCnst c2) = c1 == c2
+  _ == _ = False
+Show Cnst where
+  show (MkCnst v) = show v
+  show (PCnst v) = show v
+Ord Cnst where
+  compare (MkCnst c1) (MkCnst c2) = compare c1 c2
+  compare (PCnst c1) (PCnst c2) = compare c1 c2
+  compare (MkCnst c1) (PCnst c2) = LT
+  compare (PCnst c1) (MkCnst c2) = GT
 Pretty Cnst where
   doc (MkCnst v) = text v
+  doc (PCnst c) = text c
 
 -- Expr
 data Expr
@@ -67,7 +94,8 @@ Pretty Expr where
 
 data Phase
   = Pure
-  | RC
+  | RC -- Reset/Reuse
+  | OC -- Owned Const
 
 data FnBody : Phase -> Type where
   Ret  : Var                            -> FnBody p
@@ -75,6 +103,7 @@ data FnBody : Phase -> Type where
   Case : Var -> List (Arity, FnBody p)  -> FnBody p
   Inc  : Var -> FnBody p                -> FnBody p
   Dec  : Var -> FnBody p                -> FnBody p
+  LetC : Cnst -> Cnst -> FnBody p       -> FnBody p -- let cO := c
 Pretty (FnBody p) where
   doc e = case e of
     Ret  v      => text "ret" |++| doc v
@@ -82,6 +111,7 @@ Pretty (FnBody p) where
     Case v alts => text "case" |++| doc v |$$| indent 2 (vsep (map (\(a,b) => parens (indent 1 (doc b) |+| text " ")) alts))
     Inc  v b    => text "inc" |++| doc v |++| text ";" |$$| doc b
     Dec  v b    => text "dec" |++| doc v |++| text ";" |$$| doc b
+    LetC o c b  => text "let" |++| doc o |++| text ":=" |$$| doc b
 
 eqFnBody : FnBody p -> FnBody p -> Bool
 eqFnBody b1 b2 = case (b1, b2) of
@@ -90,6 +120,7 @@ eqFnBody b1 b2 = case (b1, b2) of
   (Case v1 as1, Case v2 as2)    => v1 == v2 && length as1 == length as2 && and (zipWith (\(a1,c1) , (a2,c2) => a1 == a2 && eqFnBody c1 c2) as1 as2)
   (Inc v1 b1, Inc v2 b2)        => v1 == v2 && eqFnBody b1 b2
   (Dec v1 b1, Dec v2 b2)        => v1 == v2 && eqFnBody b1 b2
+  (LetC o1 c1 b1, LetC o2 c2 b2) => o1 == o2 && c1 == c2 && eqFnBody b1 b2
   (_, _)                        => False
 
 data Fun : Phase -> Type where
@@ -152,47 +183,6 @@ mapExample = MkProgram
     ys = MkVar "ys"
     xs = MkVar "xs"
 
--- data FnBodyF r
---   = RetF Var
---   | LetF Var Expr r
---   | CaseF Var (List r)
---   | IncF Var r
---   | DecF Var r
---
--- Functor FnBodyF where
---   map f x = case x of
---     RetF v     => RetF v
---     LetF v e a => LetF v e (f a)
---     CaseF v as => CaseF v (map f as)
---     IncF v a   => IncF v (f a)
---     DecF v a   => DecF v (f a)
---
--- -- Least fix-point
--- data LFix : (Type -> Type) -> Type where
---   MkLFix : f (LFix f) -> LFix f
---
--- unLFix : LFix f -> f (LFix f)
--- unLFix (MkLFix f) = f
---
--- cata : Functor f => (f a -> a) -> LFix f -> a
--- cata alg = alg . (map (cata alg)) . unLFix
---
--- codata GFix : (Type -> Type) -> Type where
---   MkGFix : f (GFix f) -> GFix f
---
--- ana : Functor f => (a -> f a) -> a -> GFix f
--- ana coAlg = MkGFix . map (ana coAlg) . coAlg
---
-
--- data Expr
---   = Call Cnst (List Var)
---   | Pap Cnst (List Var)
---   | App Var Var
---   | Ctor Int (List Var)
---   | Proj Int Var
---   | Reset Var
---   | Reuse Var Int (List Var)
-
 -- Originally S
 insertReuse : Var -> Arity -> FnBody RC -> FnBody RC
 insertReuse w n f = case f of
@@ -205,6 +195,7 @@ insertReuse w n f = case f of
     e' => Let x e (insertReuse w n g)
   Dec x g => Dec x g
   Inc x g => Inc x g
+  LetC c1 c2 g => LetC c1 c2 g
 
 -- NewName
 data NewNameT : (f : Type -> Type) -> (a : Type) -> Type where
@@ -237,6 +228,12 @@ freshVar = NewName $ do
   put (S n) -- TODO: How to increment nat??? :)
   pure $ MkVar $ "w" ++ show n
 
+freshCnst : Monad m => NewNameT m Cnst
+freshCnst = NewName $ do
+  n <- get
+  put (S n)
+  pure $ PCnst ("c" ++ show n)
+
 total
 inExpr : Var -> Expr -> Bool
 inExpr v e = case e of
@@ -256,6 +253,7 @@ inFBody v f = case f of
   Case x alts => v == x || (foldl (\x,y => x && y) True (map (inFBody v . snd) alts)) -- TODO: How to use and here?
   Inc  x b    => v == x || (inFBody v b)
   Dec  x b    => v == x || (inFBody v b)
+  LetC _ _ b  => inFBody v b
 
 insertResetIns : Monad m => Var -> Arity -> FnBody RC -> NewNameT m (FnBody RC)
 insertResetIns z n f = do
@@ -270,6 +268,7 @@ insertReset : Monad m => Var -> Arity -> FnBody RC -> NewNameT m (FnBody RC)
 insertReset z n f = case f of
   Dec x g   => pure $ Dec x g
   Inc x g   => pure $ Inc x g
+  LetC o c g => LetC o c <$> insertReset z n g
   Ret x     => pure $ Ret x
   Case x gs => Case x <$> traverse (\(a, g) => (\v => (a,v)) <$> insertReset z n g) gs
   Let x e g =>
@@ -282,6 +281,7 @@ resetReuse : Monad m => FnBody Pure -> NewNameT m (FnBody RC)
 resetReuse b = case b of
   Ret x     => pure $ Ret x
   Let x e f => Let x e <$> resetReuse f
+  LetC o c f => LetC o c <$> resetReuse f
   Case x bs => Case x <$> traverse (\(arity, body) => do
                                         body' <- resetReuse body
                                         (MkPair arity) <$> (insertReset x arity body'))
@@ -293,11 +293,137 @@ resetReuseFun (MkFun ps body) = MkFun ps <$> resetReuse body
 resetReuseProgram : Monad m => Program Pure -> NewNameT m (Program RC)
 resetReuseProgram (MkProgram defs) = MkProgram <$> traverse (\(n,f) => (MkPair n <$> resetReuseFun f)) defs
 
+||| Inserts local constant
+insertLetCFnBody : Monad m => FnBody p -> NewNameT m (FnBody p) -- TODO: Right phase parameter
+insertLetCFnBody b = case b of
+  Ret  v => pure $ Ret v
+  Let  v e g => case e of
+                  (Pap c xs) => do
+                    c2 <- freshCnst
+                    (LetC c2 c . Let v (Pap c2 xs)) <$> insertLetCFnBody g
+                  e0 => Let v e0 <$> insertLetCFnBody g
+  Case v alts => Case v <$> traverse (\(a,g) => MkPair a <$> insertLetCFnBody g) alts
+  Inc  v g => Inc v <$> insertLetCFnBody g
+  Dec  v g => Dec v <$> insertLetCFnBody g
+  LetC c1 c2 g => LetC c1 c2 <$> insertLetCFnBody g
+
+insertLetCFun : Monad m => Fun p -> NewNameT m (Fun p)
+insertLetCFun (MkFun ps body) = MkFun ps <$> insertLetCFnBody body
+
+insertLetCProgram : Monad m => Program p -> NewNameT m (Program p)
+insertLetCProgram (MkProgram defs) = MkProgram <$> traverse (\(n,f) => (MkPair n <$> insertLetCFun f)) defs
+
+{-
+Inferring borrowing signatures:
+Every function parameter is annotated with Owned or Borrowed
+
+Our heruristing pcollects which parameters and variables should be owned.
+We say a parameter should be owned
+  - if x or one of its projections is used in a reset
+  - is passed to a function that takes an owned reference.
+    (This is heuristic and not required for correctness)
+-}
+
+data Borrowing
+  = Owned
+  | Borrowed
+Eq Borrowing where
+  Owned     == Owned    = True
+  Borrowed  == Borrowed = True
+  _         == _        = False
+Show Borrowing where
+  show Owned = "Owned"
+  show Borrowing = "Borrowing"
+Pretty Borrowing where
+  doc Owned     = text "Owned"
+  doc Borrowed  = text "Borrowed"
+
+BorrowingMap : Type
+BorrowingMap = SortedMap (Cnst, Nat) Borrowing
+
+borrowed : BorrowingMap -> (Cnst, Nat) -> Maybe Borrowing
+borrowed b (PCnst _, _) = Just Owned
+borrowed b (c,n)        = Data.SortedMap.lookup (c,n) b
+
+number : List a -> List (Nat, a)
+number = snd . foldl (\(n, ns), a => (S n, (n,a) :: ns)) (Z, [])
+
+||| Collects the owned variables in a function body
+collectOwnedVars : BorrowingMap -> FnBody rc -> SortedSet Var
+collectOwnedVars beta b = case b of -- TODO: Unicode Beta
+  Let z (Ctor i xs)     f => collectOwnedVars beta f
+  Let z (Reuse x i xs)  f => collectOwnedVars beta f
+  Let z (Call c xs)     f
+    => union (collectOwnedVars beta f)
+             (fromList
+              (concatMap (\(n,x) => maybe [x]
+                                          (\b => if b == Owned then [x] else [])
+                                          (borrowed beta (c,n)))
+                         (number xs)))
+  Let z (Reset x)       f => insert x (collectOwnedVars beta f)
+  Let z (App x y)       f => union (collectOwnedVars beta f) (fromList [x, y])
+  Let z (Pap cO xs)     f => union (collectOwnedVars beta f) (fromList xs)
+  -- TODO: Define a wrapper constant transformation for partial application
+  -- as we assume that partially applied functions always have Owned parameters.
+  Let z (Proj i x)      f => let c = collectOwnedVars beta f
+                             in if contains z c
+                                  then insert x c
+                                  else c
+  Ret x => empty
+  Case z alts => foldl1 union $ map (collectOwnedVars beta . snd) alts
+  Inc z f => collectOwnedVars beta f
+  Dec z f => collectOwnedVars beta f
+  LetC o c f => collectOwnedVars beta f
+
+ownedFunctionVar : BorrowingMap -> Fun p -> List (Nat, Borrowing)
+ownedFunctionVar beta (MkFun ps body) = snd $ foldl borrowed (0, []) ps
+  where
+    c : SortedSet Var
+    c = collectOwnedVars beta body
+
+    borrowed : (Nat, List (Nat, Borrowing)) -> Var -> (Nat, List (Nat, Borrowing))
+    borrowed (n, vs) v = (n + 1, (n, if contains v c then Owned else Borrowed) :: vs)
+
+ownedParameters : BorrowingMap -> Program p -> BorrowingMap
+ownedParameters beta (MkProgram funs) = foldl insertFun empty funs
+  where
+    insertFun : BorrowingMap -> (Cnst, Fun p) -> BorrowingMap
+    insertFun s (name, fun) = foldl (\s1, (n, b) => insert (name, n) b s1) s (ownedFunctionVar beta fun)
+
+startBorrowingMap : Program p -> BorrowingMap
+startBorrowingMap (MkProgram funs) = foldl insertFunSignature empty funs
+  where
+    insertFunSignature : BorrowingMap -> (Cnst, Fun p) -> BorrowingMap
+    insertFunSignature beta (cnst, MkFun ps _) = fromList
+      [ ((cnst, n), Borrowed) | (n,_) <- number ps ]
+
+-- TODO: Write fixpoint computation
+
+prettyPutStrLn : (Pretty p) => p -> IO ()
+prettyPutStrLn = putStrLn . toString 1.0 80 . doc
+
 main : IO ()
 main = do
+  let mapExampleRC = runNewName $ do
+        p1 <- resetReuseProgram mapExample
+        p2 <- insertLetCProgram p1
+        pure p2
+  let swapExampleRC = runNewName $ do
+        p1 <- resetReuseProgram swapExample
+        p2 <- insertLetCProgram p1
+        pure p2
   putStrLn ""
-  putStrLn $ toString 1.0 80 $ doc mapExample
-  putStrLn $ toString 1.0 80 $ doc $ runNewName $ resetReuseProgram mapExample
+  prettyPutStrLn mapExample
+  prettyPutStrLn mapExampleRC
   putStrLn ""
-  putStrLn $ toString 1.0 80 $ doc swapExample
-  putStrLn $ toString 1.0 80 $ doc $ runNewName $ resetReuseProgram swapExample
+  prettyPutStrLn swapExample
+  prettyPutStrLn swapExampleRC
+  putStrLn "Owned parameters: Map example"
+  printLn $ ownedParameters empty mapExampleRC
+  prettyPutStrLn $ toList $ ownedParameters empty mapExampleRC
+  putStrLn "Owned parameters: Swap example"
+  printLn $ ownedParameters empty swapExampleRC
+  prettyPutStrLn $ toList $ ownedParameters empty swapExampleRC
+  printLn "Start Borrowing Maps"
+  printLn $ startBorrowingMap mapExampleRC
+  printLn $ startBorrowingMap swapExampleRC
