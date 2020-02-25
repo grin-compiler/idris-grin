@@ -397,7 +397,16 @@ startBorrowingMap (MkProgram funs) = foldl insertFunSignature empty funs
     insertFunSignature beta (cnst, MkFun ps _) = fromList
       [ ((cnst, n), Borrowed) | (n,_) <- number ps ]
 
--- TODO: Write fixpoint computation
+Eq BorrowingMap where
+  m1 == m2 = toList m1 == toList m2
+
+calculateOwnedParameters : Program p -> BorrowingMap
+calculateOwnedParameters program = go empty (startBorrowingMap program)
+  where
+    go : BorrowingMap -> BorrowingMap -> BorrowingMap
+    go previous actual = if previous == actual
+                            then actual
+                            else ownedParameters previous program
 
 prettyPutStrLn : (Pretty p) => p -> IO ()
 prettyPutStrLn = putStrLn . toString 1.0 80 . doc
@@ -425,5 +434,5 @@ main = do
   printLn $ ownedParameters empty swapExampleRC
   prettyPutStrLn $ toList $ ownedParameters empty swapExampleRC
   printLn "Start Borrowing Maps"
-  printLn $ startBorrowingMap mapExampleRC
-  printLn $ startBorrowingMap swapExampleRC
+  printLn $ calculateOwnedParameters mapExampleRC
+  printLn $ calculateOwnedParameters swapExampleRC
