@@ -345,6 +345,12 @@ borrowed : BorrowingMap -> (Cnst, Nat) -> Maybe Borrowing
 borrowed b (PCnst _, _) = Just Owned
 borrowed b (c,n)        = Data.SortedMap.lookup (c,n) b
 
+constBorrowingParams : BorrowingMap -> Cnst -> List Borrowing
+constBorrowingParams bm c
+  = map snd
+  $ sortBy (\((_, e1), _) , ((_, e2), _) => compare e1 e2)
+  $ filter ((c ==) . fst . fst) $ Data.SortedMap.toList bm
+
 number : List a -> List (Nat, a)
 number = snd . foldl (\(n, ns), a => (S n, (n,a) :: ns)) (Z, [])
 
@@ -407,6 +413,104 @@ calculateOwnedParameters program = go empty (startBorrowingMap program)
     go previous actual = if previous == actual
                             then actual
                             else ownedParameters previous program
+
+BorrowVarMap : Type
+BorrowVarMap = SortedMap Var Borrowing
+
+ownPlus : Var -> SortedSet Var -> BorrowVarMap -> FnBody p -> FnBody p
+ownPlus x vars beta f = if not (contains x vars) && (Data.SortedMap.lookup x beta == Just Owned)
+  then f
+  else Inc x f
+
+varsInExp : Expr -> SortedSet Var
+varsInExp e = case e of
+  Call c  vs    => SortedSet.fromList vs
+  Pap  c  vs    => SortedSet.fromList vs
+  App  v1 v2    => SortedSet.fromList [v1, v2]
+  Ctor i  vs    => SortedSet.fromList vs
+  Proj i  v     => SortedSet.fromList [v]
+  Reset v       => SortedSet.fromList [v]
+  Reuse v i vs  => SortedSet.fromList $ v :: vs
+
+freeVars : FnBody p -> SortedSet Var
+freeVars f = case f of
+  Ret  x        => fromList [x]
+  Let  x e b    => delete x $ union (varsInExp e) (freeVars b)
+  Case x alts   => insert x $ foldl1 union $ map (freeVars . snd) alts
+  Inc  x b      => insert x $ freeVars b
+  Dec  x b      => insert x $ freeVars b
+  LetC c1 c2 b  => freeVars b
+
+ownMinus_ : Var -> SortedSet Var -> BorrowVarMap -> FnBody p -> FnBody p
+ownMinus_ x freeVars beta f = if not (contains x freeVars) && (Data.SortedMap.lookup x beta == Just Owned)
+  then Dec x f
+  else f
+
+ownMinuses_ : List Var -> SortedSet Var -> BorrowVarMap -> FnBody p -> FnBody p
+ownMinuses_ []        freeVars beta f = f
+ownMinuses_ (x :: xs) freeVars beta f = ownMinuses_ xs freeVars beta (ownMinus_ x freeVars beta f)
+
+ownMinus : Var -> BorrowVarMap -> FnBody p -> FnBody p
+ownMinus x beta f = ownMinus_ x (freeVars f) beta f
+
+ownMinuses : List Var -> BorrowVarMap -> FnBody p -> FnBody p
+ownMinuses xs beta f = ownMinuses_ xs (freeVars f) beta f
+
+assignBorrowMap : Var -> Borrowing -> BorrowVarMap -> BorrowVarMap
+assignBorrowMap x b = insert x b
+
+insertIncDecApp : Monad m => List Var -> List Borrowing -> BorrowVarMap -> FnBody p -> m (FnBody p)
+insertIncDecApp (y :: ys) (Owned    :: bs) beta (Let z e f)
+  = ownPlus y (union (freeVars f) (fromList ys)) beta <$> insertIncDecApp ys bs beta (Let z e f)
+insertIncDecApp (y :: ys) (Borrowed :: bs) beta (Let z e f)
+  = insertIncDecApp ys bs beta (Let z e (ownMinus y beta f))
+insertIncDecApp ys os beta f = pure f
+
+interface HasBorrowingMap (m : Type -> Type) where
+  borrowingMap : m BorrowingMap
+
+insertIncDec : (Monad m, HasBorrowingMap m) => BorrowVarMap -> FnBody p -> m (FnBody p)
+insertIncDec beta f = case f of
+  Ret  v     => pure $ ownPlus v empty beta (Ret v)
+  Let  w e b => case e of
+                  (Proj i x)     => case lookup x beta of
+                                      Nothing     => Let w e <$> insertIncDec beta b -- impossible
+                                      Just Owned  => Let w (Proj i x) . Inc w . ownMinus x beta <$> insertIncDec beta b
+                                      Just Borrowed => Let w (Proj i x) <$> insertIncDec (assignBorrowMap w Borrowed beta) b
+                  (Reset x)      => Let w (Reset x) <$> insertIncDec beta b
+                  (Call c ys)    => do
+                    bm <- borrowingMap
+                    b1 <- insertIncDec beta b
+                    insertIncDecApp ys (constBorrowingParams bm c) beta $ Let w (Call c ys) b1
+                  (Pap c ys)     => do
+                    bm <- borrowingMap
+                    b1 <- insertIncDec beta b
+                    insertIncDecApp ys (constBorrowingParams bm c) beta $ Let w (Pap c ys) b1
+                  (App x y)      => do
+                    b1 <- insertIncDec beta b
+                    insertIncDecApp [x,y] [Owned, Owned] beta $ Let w (App x y) b1
+                  (Ctor i ys)    => do
+                    b1 <- insertIncDec beta b
+                    insertIncDecApp ys (const Owned <$> ys) beta $ Let w (Ctor i ys) b1
+                  (Reuse x i ys) => do
+                    b1 <- insertIncDec beta b
+                    insertIncDecApp ys (const Owned <$> ys) beta $ Let w (Reuse x i ys) b1
+  Case v alts => let fv = SortedSet.toList (freeVars f)
+                 in Case v <$> traverse
+                                (\(arity, b0) => do
+                                    b1 <- insertIncDec beta f
+                                    let b2 = ownMinuses fv beta b1
+                                    pure (arity, b2))
+                                alts
+  Inc  v     b  => Inc  v      <$> insertIncDec beta b
+  Dec  v     b  => Dec  v      <$> insertIncDec beta b
+  LetC c1 c2 b  => LetC c1 c2  <$> insertIncDec beta b
+
+programBorrowVarMap : BorrowingMap -> Program p -> Var -> Borrowing
+programBorrowVarMap bm (MkProgram funDecs) v =
+    if contains v ownedVars then Owned else Borrowed
+  where
+    ownedVars = foldl1 SortedSet.union $ map (\(_, (MkFun params body)) => collectOwnedVars bm body) funDecs
 
 prettyPutStrLn : (Pretty p) => p -> IO ()
 prettyPutStrLn = putStrLn . toString 1.0 80 . doc
