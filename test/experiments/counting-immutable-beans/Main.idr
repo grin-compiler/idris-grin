@@ -11,6 +11,7 @@ module Main
 import Data.SortedMap
 import Data.SortedSet
 import Control.Monad.State
+import Control.Monad.Reader
 import Prelude.Traversable
 import Text.PrettyPrint.WL
 
@@ -142,7 +143,8 @@ swapExample = MkProgram
         , (MkArity 2, Let t1 (Proj 2 xs)
                     $ Case t1
                       [ (MkArity 0, Ret xs)
-                      , (MkArity 2, Let h1 (Proj 1 t1)
+                      , (MkArity 2, Let h1 (Proj 1 xs)
+                                  $ Let h2 (Proj 2 t1)
                                   $ Let t2 (Proj 2 t1)
                                   $ Let r1 (Ctor 2 [h1, t2])
                                   $ Let r2 (Ctor 2 [h2, r1])
@@ -415,18 +417,13 @@ calculateOwnedParameters program = go empty (startBorrowingMap program)
                             else ownedParameters previous program
 
 BorrowVarMap : Type
-BorrowVarMap = SortedMap Var Borrowing
-
-ownPlus : Var -> SortedSet Var -> BorrowVarMap -> FnBody p -> FnBody p
-ownPlus x vars beta f = if not (contains x vars) && (Data.SortedMap.lookup x beta == Just Owned)
-  then f
-  else Inc x f
+BorrowVarMap = Var -> Borrowing
 
 varsInExp : Expr -> SortedSet Var
 varsInExp e = case e of
   Call c  vs    => SortedSet.fromList vs
   Pap  c  vs    => SortedSet.fromList vs
-  App  v1 v2    => SortedSet.fromList [v1, v2]
+  App  v1 v2    => SortedSet.fromList [v2] -- ???
   Ctor i  vs    => SortedSet.fromList vs
   Proj i  v     => SortedSet.fromList [v]
   Reset v       => SortedSet.fromList [v]
@@ -437,12 +434,18 @@ freeVars f = case f of
   Ret  x        => fromList [x]
   Let  x e b    => delete x $ union (varsInExp e) (freeVars b)
   Case x alts   => insert x $ foldl1 union $ map (freeVars . snd) alts
+  -- Special cases
   Inc  x b      => insert x $ freeVars b
   Dec  x b      => insert x $ freeVars b
   LetC c1 c2 b  => freeVars b
 
+ownPlus : Var -> SortedSet Var -> BorrowVarMap -> FnBody p -> FnBody p
+ownPlus x vars beta f = if (not (contains x vars)) && (beta x == Owned)
+  then f
+  else Inc x f
+
 ownMinus_ : Var -> SortedSet Var -> BorrowVarMap -> FnBody p -> FnBody p
-ownMinus_ x freeVars beta f = if not (contains x freeVars) && (Data.SortedMap.lookup x beta == Just Owned)
+ownMinus_ x freeVars beta f = if (not (contains x freeVars)) && (beta x == Owned)
   then Dec x f
   else f
 
@@ -457,7 +460,7 @@ ownMinuses : List Var -> BorrowVarMap -> FnBody p -> FnBody p
 ownMinuses xs beta f = ownMinuses_ xs (freeVars f) beta f
 
 assignBorrowMap : Var -> Borrowing -> BorrowVarMap -> BorrowVarMap
-assignBorrowMap x b = insert x b
+assignBorrowMap x b f v = if x == v then b else f v
 
 insertIncDecApp : Monad m => List Var -> List Borrowing -> BorrowVarMap -> FnBody p -> m (FnBody p)
 insertIncDecApp (y :: ys) (Owned    :: bs) beta (Let z e f)
@@ -466,24 +469,38 @@ insertIncDecApp (y :: ys) (Borrowed :: bs) beta (Let z e f)
   = insertIncDecApp ys bs beta (Let z e (ownMinus y beta f))
 insertIncDecApp ys os beta f = pure f
 
-interface HasBorrowingMap (m : Type -> Type) where
-  borrowingMap : m BorrowingMap
+--insertIncDec1 : (Monad m, MonadReader BorrowingMap m) => BorrowVarMap -> FnBody p -> m (FnBody p)
+--insertIncDec1 beta (Ret v)        = pure (ownPlus v empty beta (Ret v))
+--insertIncDec1 beta (Inc v b)      = Inc v <$> insertIncDec1 beta b
+--insertIncDec1 beta (Dec v b)      = Dec v <$> insertIncDec1 beta b
+--insertIncDec1 beta (LetC c1 c2 b) = LetC c1 c2 <$> insertIncDec1 beta b
+--insertIncDec1 beta f@(Case v alts)
+--  = Case v <$> traverse
+--      (\(arity, b0) => map (MkPair arity . ownMinuses (SortedSet.toList (freeVars f)) beta) $ insertIncDec1 beta b0)
+--      alts
+--insertIncDec1 beta (Let w e b) with (e)
+--  insertIncDec1 beta (Let w e b) | Proj i x     = insertIncDec1 beta b
+--  insertIncDec1 beta (Let w e b) | Reset x      = insertIncDec1 beta b
+--  insertIncDec1 beta (Let w e b) | Call c ys    = insertIncDec1 beta b
+--  insertIncDec1 beta (Let w e b) | Pap c ys     = insertIncDec1 beta b
+--  insertIncDec1 beta (Let w e b) | App x y      = insertIncDec1 beta b
+--  insertIncDec1 beta (Let w e b) | Ctor i ys    = insertIncDec1 beta b
+--  insertIncDec1 beta (Let w e b) | Reuse x i ys = insertIncDec1 beta b
 
-insertIncDec : (Monad m, HasBorrowingMap m) => BorrowVarMap -> FnBody p -> m (FnBody p)
+insertIncDec : (Monad m, MonadReader BorrowingMap m) => BorrowVarMap -> FnBody p -> m (FnBody p)
 insertIncDec beta f = case f of
   Ret  v     => pure $ ownPlus v empty beta (Ret v)
   Let  w e b => case e of
-                  (Proj i x)     => case lookup x beta of
-                                      Nothing     => Let w e <$> insertIncDec beta b -- impossible
-                                      Just Owned  => Let w (Proj i x) . Inc w . ownMinus x beta <$> insertIncDec beta b
-                                      Just Borrowed => Let w (Proj i x) <$> insertIncDec (assignBorrowMap w Borrowed beta) b
+                  (Proj i x)     => case beta x of
+                                      Owned  => Let w (Proj i x) . Inc w . ownMinus x beta <$> insertIncDec beta b
+                                      Borrowed => Let w (Proj i x) <$> insertIncDec (assignBorrowMap w Borrowed beta) b
                   (Reset x)      => Let w (Reset x) <$> insertIncDec beta b
                   (Call c ys)    => do
-                    bm <- borrowingMap
+                    bm <- ask
                     b1 <- insertIncDec beta b
                     insertIncDecApp ys (constBorrowingParams bm c) beta $ Let w (Call c ys) b1
                   (Pap c ys)     => do
-                    bm <- borrowingMap
+                    bm <- ask
                     b1 <- insertIncDec beta b
                     insertIncDecApp ys (constBorrowingParams bm c) beta $ Let w (Pap c ys) b1
                   (App x y)      => do
@@ -498,7 +515,7 @@ insertIncDec beta f = case f of
   Case v alts => let fv = SortedSet.toList (freeVars f)
                  in Case v <$> traverse
                                 (\(arity, b0) => do
-                                    b1 <- insertIncDec beta f
+                                    b1 <- insertIncDec beta b0
                                     let b2 = ownMinuses fv beta b1
                                     pure (arity, b2))
                                 alts
@@ -506,11 +523,19 @@ insertIncDec beta f = case f of
   Dec  v     b  => Dec  v      <$> insertIncDec beta b
   LetC c1 c2 b  => LetC c1 c2  <$> insertIncDec beta b
 
-programBorrowVarMap : BorrowingMap -> Program p -> Var -> Borrowing
-programBorrowVarMap bm (MkProgram funDecs) v =
-    if contains v ownedVars then Owned else Borrowed
-  where
-    ownedVars = foldl1 SortedSet.union $ map (\(_, (MkFun params body)) => collectOwnedVars bm body) funDecs
+funInsertIncDec : (Monad m, MonadReader BorrowingMap m) => Cnst -> Fun p -> m (Fun p)
+funInsertIncDec funName (MkFun args body) = do
+  bm <- ask
+  let argNum = \x => findIndex (x==) args
+  let beta = \x => case argNum x of
+                    Nothing => Owned
+                    Just n => case Data.SortedMap.lookup (funName, n) bm of
+                      Nothing => Owned
+                      Just r  => r
+  (MkFun args . ownMinuses args beta) <$> insertIncDec beta body
+
+programInsertIncDec : (Monad m, MonadReader BorrowingMap m) => Program p -> m (Program p)
+programInsertIncDec (MkProgram funDefs) = MkProgram <$> traverse (\(c, f) => MkPair c <$> funInsertIncDec c f) funDefs
 
 prettyPutStrLn : (Pretty p) => p -> IO ()
 prettyPutStrLn = putStrLn . toString 1.0 80 . doc
@@ -538,5 +563,97 @@ main = do
   printLn $ ownedParameters empty swapExampleRC
   prettyPutStrLn $ toList $ ownedParameters empty swapExampleRC
   printLn "Start Borrowing Maps"
-  printLn $ calculateOwnedParameters mapExampleRC
-  printLn $ calculateOwnedParameters swapExampleRC
+  let mco = calculateOwnedParameters mapExampleRC
+  let sco = calculateOwnedParameters swapExampleRC
+  printLn mco
+  printLn sco
+  let mapExampleRC2 = runIdentity $ runReaderT (programInsertIncDec mapExampleRC) sco
+  prettyPutStrLn (the (Program RC) mapExampleRC2)
+  let swapExampleRC2 = runIdentity $ runReaderT (programInsertIncDec swapExampleRC) sco
+  prettyPutStrLn (the (Program RC) swapExampleRC2)
+
+{-
+Implementation of the Counting Immutable Beans (CIB) for the GRIN compiler.
+
+CIB uses instrumentation of the original program. There are four new instructions in the syntax
+that are inserted via instrumentation. This can be categorized into two;
+- reference counter instructions:
+  - inc
+  - dec
+- heap location reuse:
+  - reset
+  - reuse
+
+In the CIB approach every heap location has a reference counter associated with it.
+Inc increments the counter for the location, and also increments all the referred locations transitively.
+Dec decrements the counter for the location, and also decrements all the referred locations transitively.
+
+Reset, reuse:
+From the CIB paper:
+let y = reset x.
+If x is a shared value, than y is set to a special pointer value BOX, otherwise to the heap location associated with x.
+If x is not shared than reset decrements the reference counters of the components of x, and y is set to x.
+
+let z = reuse y in ctor_i w.
+If y is BOX reuse allocates a new heap for the constructor.
+If y is not Box the runtime reuses the heap location for storing the constructor.
+
+Application of the same idea for GRIN:
+Differences: meanwhile Lean's IR put every variable on the heap, GRIN uses variables as were registers
+and only a subset of the registers are associated with heap locations. A register is associated
+with heap location if its type is Loc. This means the GRIN implementation of the CIB approach needs
+a type environment which tells which variables can be affected by the CIB operations.
+
+In GRIN:
+ * The CIB instrumentation should happen after the optimization steps.
+ * Special interpreter should be implemented which handles the CIB instructions.
+ * Probably it should have its own LLVM code generator and LLVM implemented runtime, preferably a plugin
+   for the existing one.
+
+We need to add 4 new instructions:
+ * `x <- reset y;`   where y is a heap location, x can be a special heap location, which can be BOX too.
+ * `z <- reuse x y;` where x is a special heap location created by reset, and y is a Node value.
+ * `z <- inc x;`     where x is a heap location, it transitively increments the reference counters in the locations.
+                     cycle detection should happen. The increment operation computes unit as its return value.
+ * `z <- dec x;`     where x is a heap location, it transitively decrements the reference counters in the locations.
+                     cycle detection should happen. When the counter reaches zero, the runtime must deallocate
+                     the location. The decrement operation computes unit as its return value.
+
+The GRIN nodes store primitive values, but the runtime makes the difference between location values and
+primitive values, thus it is able to create the transitive closure of the reachability relation of a location
+and manipulate its reference counters.
+
+Every of the four instructions needs to be implemented in the GRIN runtime/interpreter.
+
+In the original paper reuse of the constructors could happen only of the arity of the constructors
+are the same. But in GRIN as the runtime needs to allocate heaps based on the type of the heap location.
+This means every heap location can have its own arity, and reuse if the heap location is possible
+only if the new node does not exceeds the arity of the heap node. Otherwise a new node needs to
+be allocated, with the maximum arity.
+
+The most important change is the reuse construction. It changes certain instances of the
+store operation to the reuse operation.
+
+```
+Before:
+x <- store y;
+
+After:
+z <- reset w;
+...
+x <- reuse z y;
+```
+
+In this case we need to decide to reuse the heap location associated with w only if w can accommodate
+all the possible values of x. This means the max-arity(w) >= max-arity(x). Meanwhile Lean's
+approach uses the arity of the constructors in the alternatives, we can use the abstract information
+of all the possible runs.
+
+Implementation steps:
+[ ] Import abstracting the definitional interpreters from the mini-grin repo
+[ ] Change the implementation to use base functors instead of Expr datatype
+[ ] Implement reference statistics with the new interpreter, as a warm-up exercise
+[ ] Implement CIB program instrumentation for GRIN producing ExprF :+: CibF AST
+[ ] Implement interpreter for CIB extended GRIN program
+[ ] Extra: Implement LLVM codegen plugin for CIB instructions
+-}
