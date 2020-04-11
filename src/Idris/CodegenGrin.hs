@@ -6,36 +6,37 @@ module Idris.CodegenGrin
   , codegenGrin
   ) where
 
+import Control.Exception
 import Control.Monad
-import Text.Show.Pretty hiding (Name)
-import Text.Printf
-import Debug.Trace
-import qualified Data.Text as Text
 import Data.Char (ord)
+import Data.Functor.Foldable
 import Data.List
 import Data.String (fromString)
-import Control.Exception
-
+import Debug.Trace
+import Grin.ExtendedSyntax.Grin as Grin
+import Grin.ExtendedSyntax.Pretty
 import IRTS.CodegenCommon
-import IRTS.Simplified as Idris
 import IRTS.Lang as Idris
-import qualified Idris.Core.TT as Idris
-import Data.Functor.Foldable
-import Transformations.StaticSingleAssignment
-import Transformations.BindNormalisation
-import Text.PrettyPrint.ANSI.Leijen (ondullblack)
-import System.Process (callCommand)
-import System.Directory (removeFile)
-import System.IO (BufferMode(..), hSetBuffering, stdout)
-import System.Environment
-
-import Grin.Pretty
-import Grin.Grin as Grin
+import IRTS.Simplified as Idris
+import Idris.EvalPrimOp
+import Idris.PrimOps
 import Pipeline.Pipeline
 import Reducer.Pure (EvalPlugin(..))
+import System.Directory (removeFile)
+import System.Environment
+import System.IO (BufferMode(..), hSetBuffering, stdout)
+import System.Process (callCommand)
+import Text.PrettyPrint.ANSI.Leijen (ondullblack)
+import Text.Printf
+import Text.Show.Pretty hiding (Name)
+import Transformations.ExtendedSyntax.BindNormalisation
+import Transformations.ExtendedSyntax.StaticSingleAssignment
+import Transformations.ExtendedSyntax.Conversion (convert)
+import Transformations.ExtendedSyntax.Names
 
-import Idris.PrimOps
-import Idris.EvalPrimOp
+import qualified Data.Text as Text
+import qualified Idris.Core.TT as Idris
+
 
 {-
 PLAN
@@ -114,7 +115,7 @@ codegenGrin o@Options{..} CodegenInfo{..} = do
         , _poSaveBinary = saveInBinary
         , _poCFiles = ["prim_ops.c", "runtime.c"]
         })
-      (program simpleDecls)
+      (convert (program simpleDecls))
       preparation
       (idrisOptimizations o)
       (postProcessing o)
@@ -123,15 +124,14 @@ program :: [(Idris.Name, SDecl)] -> Exp
 program defs =
   bindNormalisation $
   staticSingleAssignment $
-  Program exts $ primOps ++ map (function . snd) defs
+  Program exts $ primOps ++ runEvalNameM (mapM (function . snd) defs)
  where Program exts primOps = idrisPrimOps
 
-function :: SDecl -> Exp
+function :: SDecl -> NameM Exp
 function (SFun fname params _int body) =
-  Def
-    (name fname)
-    (map (\(p, i) -> packName $ unpackName (name fname) ++ show i) (params `zip` [0..]))
-    (sexp (name fname) body)
+  Def (name fname)
+      (map (\(p, i) -> packName $ unpackName (name fname) ++ show i) (params `zip` [0..]))
+    <$> sexp (name fname) body
 
 loc :: Name -> LVar -> Val
 loc fname (Idris.Loc i) = Var $ packName $ unpackName fname ++ show i
@@ -141,8 +141,8 @@ locVal :: Name -> LVar -> Val
 locVal fname (Idris.Loc i) = Var $ packName $ unpackName fname ++ show i ++ "_val"
 locVal _ _ = error "locVal"
 
-lvar :: Name -> LVar -> Val
-lvar fname = Var . \case
+lvar :: Name -> LVar -> Name
+lvar fname = \case
   Idris.Loc loc -> packName $ unpackName fname ++ show loc
   Glob nm       -> name nm
 
@@ -151,50 +151,65 @@ lvarVal fname = Var . \case
   Idris.Loc loc -> packName $ unpackName fname ++ show loc ++ "_val"
   Glob nm       -> packName $ unpackName (name nm) ++ "_val"
 
-sexp :: Name -> SExp -> Exp
+sexp :: Name -> SExp -> NameM Exp
 sexp fname = \case
 
-  SLet loc0@(Idris.Loc i) v sc ->
-    EBind (SBlock (sexp fname v)) (varV loc0) $ -- calculate
-    EBind (SStore (varV loc0)) (var loc0)     $ -- store
-    (sexp fname sc)
+  SLet loc0@(Idris.Loc i) v sc -> do
+    lhsVal <- deriveNewName "lhs-val"
+    EBind
+      <$> (SBlock <$> sexp fname v) -- calculate
+      <*> (pure (VarPat lhsVal))
+      <*> (EBind (SStore lhsVal) (VarPat (var loc0)) -- store
+            <$> sexp fname sc)
 
-  Idris.SApp bool nm lvars -> Grin.SApp (name nm) (map var lvars)
+  Idris.SApp bool nm lvars -> pure $ Grin.SApp (name nm) (map var lvars)
 
   -- Update is used in eval like functions, where the computed value must be the value
   -- of the expression
-  Idris.SUpdate loc0 sexp0 ->
-    EBind (SBlock (sexp fname sexp0)) (varV loc0) $
-    EBind (Grin.SUpdate (variableName $ var loc0) (varV loc0)) Unit $
-    SReturn (varV loc0)
+  Idris.SUpdate loc0 sexp0 -> do
+    updateVal <- deriveNewName "update"
+    updateUnitPat <- deriveNewName "update-unit"
+    EBind
+      <$> (SBlock <$> sexp fname sexp0)
+      <*> (pure (VarPat updateVal))
+      <*> (pure (EBind
+            (Grin.SUpdate (var loc0) updateVal)
+            (VarPat updateUnitPat)
+            (SReturn (Var updateVal))))
 
-  SCase caseType lvar0 salts ->
-    EBind (SFetch $ variableName $ var lvar0) (varV lvar0) $
-    ECase (varV lvar0) (alts fname salts)
-  SChkCase lvar0 salts ->
-    EBind (SFetch $ variableName $ var lvar0) (varV lvar0) $
-    ECase (varV lvar0) (alts fname salts)
+  SCase caseType lvar0 salts -> do
+    fetchVal <- deriveNewName "fetch"
+    EBind (SFetch (var lvar0)) (VarPat fetchVal)
+      <$> ECase fetchVal <$> alts fname salts
+  SChkCase lvar0 salts -> do
+    fetchVal <- deriveNewName "fetch"
+    EBind (SFetch (var lvar0)) (VarPat fetchVal)
+      <$> ECase fetchVal <$> alts fname salts
 
   --SProj lvar0 int -> SFetchI (lvar fname lvar0) (Just int)
 
   -- All the primitive operations must be part of the runtime, and
   -- they must fetch values, as wrappers
-  SOp f lvars -> primFn f (map var lvars)
+  SOp f lvars -> pure $ primFn f (map var lvars)
 
   -- Constanst contains only tags and variables, which are locations, thus
   -- it can be the returned as the last
-  scon@(SCon maybeLVar int name lvars) -> SReturn $ val fname scon
-  sconst@(SConst cnst) -> SReturn $ val fname sconst
+  scon@(SCon maybeLVar int name lvars) -> returnVal fname scon
+  sconst@(SConst cnst) -> returnVal fname sconst
 
-  SV lvar0@(Idris.Loc i)  -> SFetch $ variableName $ var lvar0
-  SV lvar0@(Idris.Glob n) -> traceShow "Global call" $ Grin.SApp (variableName $ var lvar0) []
+  SV lvar0@(Idris.Loc i)  -> pure $ SFetch $ var lvar0
+  SV lvar0@(Idris.Glob n) -> traceShow "Global call" $ pure $ Grin.SApp (var lvar0) []
 
   -- SForeign fdesc1 fdesc2 fdescLVars -> undefined
   -- TODO: Foreign function calls must handle pointers or they must be wrapped.
-  SForeign t fun args -> foreignFun fname t fun args
+  SForeign t fun args -> pure $ foreignFun fname t fun args
 
-  SNothing -> SReturn (ConstTagNode (Tag C "Erased") [])
-  SError msg -> Grin.SApp "idris_error" [Lit $ LString $ Text.pack msg]
+  SNothing -> pure $ SReturn (ConstTagNode (Tag C "Erased") [])
+  SError msg -> do
+    idrisErrorVar <- deriveNewName "idrisError"
+    pure $
+      EBind (SReturn (Lit $ LString $ Text.pack msg)) (VarPat idrisErrorVar) $
+            (Grin.SApp "idris_error" [idrisErrorVar])
   e -> error $ printf "unsupported %s" (show e)
   where
     var  = lvar fname
@@ -311,15 +326,15 @@ foreignFun fname _ (FStr "malloc") [(_FApp_C_IntT_FUnknown_FCon_C_IntNative1,lva
   = Grin.SApp "malloc" (map (lvar fname) [lvar1])
 foreignFun fname _ rest args = error $ show rest ++ " " ++ show args
 
-alts :: Name -> [SAlt] -> [Exp]
-alts fname as = concat [con2, cons2, defs2]
-  where
-    (con0, cons0, defs0) = groupAlternatives as
-    defs1 = take 1 $ (if (length defs0 > 1) then (traceShow ("More than one def:",defs0)) else id) defs0
-    cons1 = constAlternativesByTag cons0
-    con2  = map (constructorAlt fname) con0
-    defs2 = map (defaultAlt fname) defs1
-    cons2 = map (constantAlts fname defs2) cons1
+alts :: Name -> [SAlt] -> NameM [Exp]
+alts fname as = do
+  let (con0, cons0, defs0) = groupAlternatives as
+  let defs1 = take 1 $ (if (length defs0 > 1) then (traceShow ("More than one def:",defs0)) else id) defs0
+  let cons1 = constAlternativesByTag cons0
+  con2  <- mapM (constructorAlt fname) con0
+  defs2 <- mapM (defaultAlt fname) defs1
+  cons2 <- mapM (constantAlts fname defs2) cons1
+  pure $ concat [con2, cons2, defs2]
 
 groupAlternatives :: [SAlt] -> ([SAlt], [SAlt], [SAlt])
 groupAlternatives = go ([],[],[])
@@ -334,35 +349,36 @@ groupAlternatives = go ([],[],[])
 constAlternativesByTag :: [SAlt] -> [[SAlt]]
 constAlternativesByTag = groupBy sameTag
   where
-    sameTag (SConstCase c1 _) (SConstCase c2 _)
-      | ConstTagNode t1 _ <- literal c1
-      , ConstTagNode t2 _ <- literal c2
-      = t1 == t2
-    sameTag _ _ = error "constAlternativesByTag"
+    sameTag (SConstCase c1 _) (SConstCase c2 _) = literalTag c1 == literalTag c2
+    sameTag _                 _                 = error "constAlternativesByTag"
 
-constructorAlt :: Name -> SAlt -> Exp
+constructorAlt :: Name -> SAlt -> NameM Exp
 constructorAlt fname (SConCase startIdx t nm names sexp0) =
-  Alt (NodePat (Tag C (name nm)) (map (\(i,_n) -> packName $ unpackName fname ++ show i) ([startIdx ..] `zip` names)))
-      (sexp fname sexp0)
+  Alt (NodePat (Tag C (name nm))
+        (map (\(i,_n) -> packName $ unpackName fname ++ show i) ([startIdx ..] `zip` names)))
+      <$> deriveNewName "cnstr-alt"
+      <*> sexp fname sexp0
 constructorAlt _ _ = error "constructorAlt"
 
-constantAlts :: Name -> [Exp] -> [SAlt] -> Exp
+constantAlts :: Name -> [Exp] -> [SAlt] -> NameM Exp
 constantAlts fname defs as@(a@(SConstCase cnst _):_) =
-  Alt (NodePat tag [cpatVar]) $ ECase (Var cpatVar) $
-    (flip map as $ \(SConstCase c e) ->
-      let (ConstTagNode _ [Lit l]) = literal c
-      in (Alt (LitPat l) (sexp fname e)))
-    ++ defs
+  Alt (NodePat tag [cpatVar])
+    <$> deriveNewName "cst-alt"
+    <*> (ECase cpatVar <$> do-- TODO
+          alts <- (forM as $ \(SConstCase c e) -> do
+                    let (t, l) = literalTagAndParams c
+                    Alt (LitPat l) <$> deriveNewName "cst-alt-pat" <*> sexp fname e)
+          pure $ alts ++ defs)
   where
-    (ConstTagNode tag [Lit lit]) = literal cnst
+    (tag,lit) = literalTagAndParams cnst
     cpatVar = packName $ unpackName fname ++ "_cpat_" ++ (map (\case { ' ' -> '_'; c -> c}) (show lit))
 constantAlts _ _ _ = error "constantAlts"
 
-defaultAlt :: Name -> SAlt -> Exp
-defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat (sexp fname sexp0)
+defaultAlt :: Name -> SAlt -> NameM Exp
+defaultAlt fname (SDefaultCase sexp0) = Alt DefaultPat <$> deriveNewName "def-alt" <*> sexp fname sexp0
 defaultAlt _ _ = error "defaultAlt"
 
-primFn :: Idris.PrimFn -> [SimpleVal] -> Exp
+primFn :: Idris.PrimFn -> [Name] -> Exp
 primFn f ps = case f of
   LPlus   (Idris.ATInt Idris.ITChar)                -> Grin.SApp "idris_int_add" ps
   LPlus   (Idris.ATInt Idris.ITBig)                 -> Grin.SApp "idris_int_add" ps
@@ -814,36 +830,54 @@ primFn f ps = case f of
   LCrash -> Grin.SApp "idris_crash" ps
   LNoOp -> undefined
 
--- TODO: Check if the Val is reffered and fetched
-val :: Name -> SExp -> Val
-val fname = \case
-  SV lvar0 -> lvar fname lvar0
-  SConst c -> literal c
-  SCon _ int nm lvars -> ConstTagNode (Tag C (name nm)) (map (lvar fname) lvars)
+-- | Creates an expression
+returnVal :: Name -> SExp -> NameM Exp
+returnVal fname = \case
+  SV lvar0 -> pure $ SReturn $ Var $ lvar fname lvar0
+  SCon _ int nm lvars -> pure $ SReturn $ ConstTagNode (Tag C (name nm)) (map (lvar fname) lvars)
+  SConst c -> literalReturnConst c
   rest -> error $ "unsupported val:" ++ show rest
 
 name :: Idris.Name -> Name
 name n = packName $ "idr_" ++ (Idris.showCG n)
 
--- Creates Nodes with Literals
-literal :: Idris.Const -> Val
-literal l = case l of
-  Idris.I int      -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral int)]
-  Idris.BI integer -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral integer)]
-  Idris.Str string -> ConstTagNode (Tag C "GrString") [Lit $ LString $ fromString string]
-  Idris.Ch char    -> ConstTagNode (Tag C "GrInt") [Lit $ LInt64 (fromIntegral $ ord $ char)]
-  Idris.Fl double  -> ConstTagNode (Tag C "GrFloat") [Lit $ LFloat (realToFrac double)] -- TODO
+literalTagAndParams :: Idris.Const -> (Tag, Lit)
+literalTagAndParams l = case l of
+  Idris.I int       -> expr "GrInt"     (LInt64 (fromIntegral int))
+  Idris.BI integer  -> expr "GrInt"     (LInt64 (fromIntegral integer))
+  Idris.Str string  -> expr "GrString"  (LString (fromString string))
+  Idris.Ch char     -> expr "GrInt"     (LInt64 (fromIntegral (ord char)))
+  Idris.Fl double   -> expr "GrFloat"   (LFloat (realToFrac double)) -- TODO
+  Idris.B8 word8    -> expr "GrBit8"    (LWord64 (fromIntegral word8))
+  Idris.B16 word16  -> expr "GrBit16"   (LWord64 (fromIntegral word16))
+  Idris.B32 word32  -> expr "GrBit32"   (LWord64 (fromIntegral word32))
+  Idris.B64 word64  -> expr "GrBit64"   (LWord64 (fromIntegral word64))
   -- TODO: Represent appropriate bit length 8,16,32,64
-  Idris.B8 word8   -> ConstTagNode (Tag C "GrBit8") [Lit $ LWord64 (fromIntegral word8)]
-  Idris.B16 word16 -> ConstTagNode (Tag C "GrBit16") [Lit $ LWord64 (fromIntegral word16)]
-  Idris.B32 word32 -> ConstTagNode (Tag C "GrBit32") [Lit $ LWord64 (fromIntegral word32)]
-  Idris.B64 word64 -> ConstTagNode (Tag C "GrBit64") [Lit $ LWord64 (fromIntegral word64)]
   Idris.AType arithTy -> error $ printf "unsupported literal %s" (show l)
-  Idris.StrType -> error $ printf "unsupported literal %s" (show l)
-  Idris.WorldType -> error $ printf "unsupported literal %s" (show l)
-  Idris.TheWorld -> error $ printf "unsupported literal %s" (show l)
-  Idris.VoidType -> error $ printf "unsupported literal %s" (show l)
-  Idris.Forgot -> error $ printf "unsupported literal %s" (show l)
+  Idris.StrType       -> error $ printf "unsupported literal %s" (show l)
+  Idris.WorldType     -> error $ printf "unsupported literal %s" (show l)
+  Idris.TheWorld      -> error $ printf "unsupported literal %s" (show l)
+  Idris.VoidType      -> error $ printf "unsupported literal %s" (show l)
+  Idris.Forgot        -> error $ printf "unsupported literal %s" (show l)
+  where
+    expr t l = (Tag C t, l)
+
+literalTag :: Idris.Const -> Name
+literalTag l = tag
+  where
+    (Tag _ tag, _) = literalTagAndParams l
+
+-- Creates Nodes with Literals
+literalReturnConst :: Idris.Const -> NameM Exp
+literalReturnConst l = do
+  lrcVar1 <- deriveNewName "lrcv"
+  lrcVar2 <- deriveNewName "lrct"
+  let block (tag, lit)
+        = pure $ SBlock $
+            EBind (SReturn (Lit lit)) (VarPat lrcVar1) $
+            EBind (SReturn (ConstTagNode tag [lrcVar1])) (VarPat lrcVar2) $
+            SReturn (Var lrcVar2)
+  block $ literalTagAndParams l
 
 preparation :: [PipelineStep]
 preparation =
@@ -893,5 +927,5 @@ createPostProcessing = do
   let evalPlugin executableName = EvalPlugin { evalPluginPrimOp = evalPrimOp executableName buffer }
   pure $ \opt -> concat
     [ [ (if (outputGrin opt) then SaveGrin else (SaveExecutable (debugSymbols opt))) $ Abs $ output opt ]
-    , [ PureEvalPlugin (evalPlugin (evalProgName opt)) | evalGrin opt ]
+    , [ PureEvalPlugin (evalPlugin (evalProgName opt)) False | evalGrin opt ] -- Do not show statistics
     ]

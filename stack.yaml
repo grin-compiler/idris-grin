@@ -7,7 +7,6 @@ packages:
   - '.'
   # - '../grin/grin'
 
-
 extra-deps:
   - monad-gen-0.3.0.1
   - functor-infix-0.0.5
@@ -18,7 +17,7 @@ extra-deps:
   - floating-bits-0.3.0.0
 
   - github: grin-compiler/grin
-    commit: 2976a999612ed8137a1e6d9381a8360eac96626d
+    commit: 4b61b28fde19a70a9f6ce4100df6c0def7501922
     subdirs:
       - grin
 

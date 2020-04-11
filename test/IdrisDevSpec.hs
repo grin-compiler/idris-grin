@@ -26,6 +26,9 @@ spec = do
           }
 
   describe "In focus" $ do
+    --it "test/experiments/counting-immutable-beans/Main.idr" $ (testBackend "test/experiments/counting-immutable-beans/Main.idr")
+    --  { package = Just "contrib"
+    --  }
     pure ()
 
   notOnCI <- runIO $ do

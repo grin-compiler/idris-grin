@@ -49,6 +49,7 @@ float           _prim_string_float(struct string* p1);
 struct string*  _prim_float_string(float p1);
 struct string*  _prim_int_str(int64_t p1);
 uint64_t        _prim_int_word(int64_t p1);
+int64_t         _prim_int_bigint(int64_t p1);
 
 // System
 int64_t         _prim_time();
